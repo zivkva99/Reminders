@@ -1698,9 +1698,16 @@ class HabitReminderReceiver : BroadcastReceiver() {
         val habitInstanceId = intent.getLongExtra(HabitScheduler.EXTRA_HABIT_INSTANCE_ID, -1L)
         if (habitInstanceId == -1L) return
         val pendingResult = goAsync()
-        val container = (context.applicationContext as RemindersApp).container
-        val dao = habitInstanceDaoOverride ?: container.habitInstanceDao
-        val engine = habitEngineOverride ?: container.habitEngine
+        // Each override is checked via ?: BEFORE the RemindersApp cast, not a separate eager
+        // `val container = (context.applicationContext as RemindersApp)...` line — that would
+        // evaluate the cast unconditionally, throwing ClassCastException in every test even
+        // when overrides are provided (Robolectric's application context isn't a RemindersApp
+        // instance — see robolectric.properties from Task 3). Mirrors ReadBook's NudgeReceiver
+        // exactly, which relies on this same short-circuiting for the same reason.
+        val dao = habitInstanceDaoOverride
+            ?: (context.applicationContext as RemindersApp).container.habitInstanceDao
+        val engine = habitEngineOverride
+            ?: (context.applicationContext as RemindersApp).container.habitEngine
         val scope = scopeOverride ?: CoroutineScope(SupervisorJob() + Dispatchers.Default)
         scope.launch {
             try {
@@ -1917,9 +1924,13 @@ class RolloverReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         val pendingResult = goAsync()
-        val container = (context.applicationContext as RemindersApp).container
-        val dao = habitInstanceDaoOverride ?: container.habitInstanceDao
-        val scheduler = habitSchedulerOverride ?: container.habitScheduler
+        // Lazy — each override is checked via ?: before the RemindersApp cast, not a shared
+        // eager `val container = ...` line, for the same ClassCastException reason documented
+        // in HabitReminderReceiver (Task 7).
+        val dao = habitInstanceDaoOverride
+            ?: (context.applicationContext as RemindersApp).container.habitInstanceDao
+        val scheduler = habitSchedulerOverride
+            ?: (context.applicationContext as RemindersApp).container.habitScheduler
         val scope = scopeOverride ?: CoroutineScope(SupervisorJob() + Dispatchers.Default)
         scope.launch {
             try {
@@ -1964,9 +1975,11 @@ class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != Intent.ACTION_BOOT_COMPLETED) return
         val pendingResult = goAsync()
-        val container = (context.applicationContext as RemindersApp).container
-        val dao = habitInstanceDaoOverride ?: container.habitInstanceDao
-        val scheduler = habitSchedulerOverride ?: container.habitScheduler
+        // Lazy — same reason as HabitReminderReceiver (Task 7) and RolloverReceiver above.
+        val dao = habitInstanceDaoOverride
+            ?: (context.applicationContext as RemindersApp).container.habitInstanceDao
+        val scheduler = habitSchedulerOverride
+            ?: (context.applicationContext as RemindersApp).container.habitScheduler
         val scope = scopeOverride ?: CoroutineScope(SupervisorJob() + Dispatchers.Default)
         scope.launch {
             try {
