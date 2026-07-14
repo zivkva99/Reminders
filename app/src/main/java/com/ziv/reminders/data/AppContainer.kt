@@ -5,6 +5,7 @@ import androidx.room.Room
 import com.ziv.reminders.engine.HabitEngine
 import com.ziv.reminders.scheduling.HabitScheduler
 
+/** Manual DI — no framework needed at this app's size. One instance, owned by RemindersApp. */
 class AppContainer(context: Context) {
     private val appContext = context.applicationContext
 
