@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Grounding shadow -->
+    <path
+        android:fillColor="#22000000"
+        android:pathData="M24,80 a30,6 0,1,0 60,0 a30,6 0,1,0 -60,0 Z" />
+    <!-- Left page -->
+    <path
+        android:fillColor="#F5C463"
+        android:pathData="M54,40 C46,36 34,37 26,44 L26,74 C34,81 46,80 54,84 Z" />
+    <!-- Right page (slightly darker: light source from the left) -->
+    <path
+        android:fillColor="#E4AC49"
+        android:pathData="M54,40 C62,36 74,37 82,44 L82,74 C74,81 62,80 54,84 Z" />
+    <!-- Spine -->
+    <path
+        android:fillColor="#B9832F"
+        android:pathData="M52,40 C53,39 55,39 56,40 L56,84 C55,85 53,85 52,84 Z" />
+    <!-- Bookmark ribbon, marking the reader's place -->
+    <path
+        android:fillColor="#E2604A"
+        android:pathData="M56,22 L64,22 L64,58 L60,50 L56,58 Z" />
+</vector>
