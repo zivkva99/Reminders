@@ -71,4 +71,29 @@ class DashboardViewModelTest {
 
         db.close()
     }
+
+    @Test
+    fun refresh_habitDisabledToday_isExcludedFromRows() = runTest {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java)
+            .setQueryCoroutineContext(StandardTestDispatcher(testScheduler))
+            .build()
+        db.habitInstanceDao().insertIfAbsent(
+            HabitInstance(1L, "COUNTER", "Exercise", 0b1111111, "t", "b", 5)
+        )
+        db.habitInstanceDao().insertIfAbsent(
+            HabitInstance(2L, "COUNTER", "Never", 0, "t", "b", 5)
+        )
+        val viewModel = DashboardViewModel(TestAppContainer(db))
+
+        viewModel.refresh()
+        testScheduler.advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertTrue(state.isLoaded)
+        assertEquals(1, state.habits.size)
+        assertEquals("Exercise", state.habits[0].name)
+
+        db.close()
+    }
 }

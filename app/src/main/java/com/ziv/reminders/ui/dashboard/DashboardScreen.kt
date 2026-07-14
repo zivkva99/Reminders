@@ -17,10 +17,16 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 
 @Composable
 fun DashboardScreen(viewModel: DashboardViewModel) {
     val uiState by viewModel.uiState.collectAsState()
+
+    // Re-reads current state on every resume (first composition, backgrounding, notification
+    // tap) so the dashboard never shows stale data — see final-review Issue 2/4.
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.refresh() }
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         Text("Today", style = MaterialTheme.typography.titleLarge)

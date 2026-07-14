@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.ziv.reminders.data.DashboardDataSource
 import com.ziv.reminders.data.HabitStatus
+import com.ziv.reminders.data.isEnabledDay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -23,6 +24,7 @@ class DashboardViewModel(private val dataSource: DashboardDataSource) : ViewMode
         viewModelScope.launch {
             val today = LocalDate.now()
             val instances = dataSource.habitInstanceDao.getAll()
+                .filter { isEnabledDay(today, it.enabledDaysMask) }
             val rows = instances.map { instance ->
                 val status = dataSource.habitEngine.todayStatus(instance, today)
                 val streak = dataSource.habitEngine.currentStreak(instance, today)
