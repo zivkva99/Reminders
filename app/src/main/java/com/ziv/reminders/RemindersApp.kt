@@ -16,13 +16,13 @@ class RemindersApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        // Self-heal on every app open: seeds the known habit instances on first launch, then
-        // ensures today's reminders and the rollover chain are scheduled even if the
-        // midnight/boot jobs never got to run (OEM battery killers, a missed boot receiver,
-        // etc.) — not solely reliant on any single scheduling path.
+        // Self-heal on every app open: seeds the known habit instances on first launch, closes
+        // out any Timer session left dangling by a process kill, then ensures today's reminders
+        // and the rollover chain are scheduled even if the midnight/boot jobs never got to run.
         appScope.launch {
             try {
                 ensureHabitsSeeded(container.habitInstanceDao)
+                container.timerHabitRepository.reconcileCrashedSessions()
                 val today = LocalDate.now()
                 for (instance in container.habitInstanceDao.getAll()) {
                     container.habitScheduler.scheduleRemindersForToday(today, instance)
