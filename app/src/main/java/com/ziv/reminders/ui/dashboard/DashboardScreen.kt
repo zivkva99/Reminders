@@ -12,14 +12,20 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import com.ziv.reminders.data.HabitStatus
+import kotlinx.coroutines.delay
 
 @Composable
 fun DashboardScreen(viewModel: DashboardViewModel) {
@@ -34,17 +40,22 @@ fun DashboardScreen(viewModel: DashboardViewModel) {
         Spacer(Modifier.height(16.dp))
         if (!uiState.isLoaded) return@Column
         uiState.habits.forEach { habit ->
-            HabitRow(habit = habit, onIncrement = { viewModel.onIncrement(habit.instanceId) })
+            val context = LocalContext.current
+            HabitRow(
+                habit = habit,
+                onIncrement = { viewModel.onIncrement(habit.instanceId) },
+                onToggleTimer = { viewModel.onToggleTimer(habit.instanceId, context) },
+            )
             Spacer(Modifier.height(8.dp))
         }
     }
 }
 
 @Composable
-private fun HabitRow(habit: HabitRowUiState, onIncrement: () -> Unit) {
+private fun HabitRow(habit: HabitRowUiState, onIncrement: () -> Unit, onToggleTimer: () -> Unit) {
     when (habit.status) {
         is HabitStatus.CounterStatus -> CounterHabitRow(habit, habit.status, onIncrement)
-        is HabitStatus.TimerStatus -> TimerHabitRow(habit, habit.status)
+        is HabitStatus.TimerStatus -> TimerHabitRow(habit, habit.status, onToggleTimer)
     }
 }
 
@@ -66,12 +77,22 @@ private fun CounterHabitRow(habit: HabitRowUiState, status: HabitStatus.CounterS
     }
 }
 
-// Read-only for now — Task 9 adds the live 1Hz countdown and Start/Stop tap once TimerService
-// exists to actually run a session.
 @Composable
-private fun TimerHabitRow(habit: HabitRowUiState, status: HabitStatus.TimerStatus) {
+private fun TimerHabitRow(habit: HabitRowUiState, status: HabitStatus.TimerStatus, onToggleTimer: () -> Unit) {
+    // Live 1Hz countdown while running — the ViewModel/DB only update on Start/Stop/Completion,
+    // not every second; the visual tick lives here and resets whenever the underlying status
+    // (a new baseline remainingSeconds, or isRunning flipping) actually changes. Mirrors
+    // ReadBook's real HomeScreen InProgressContent mechanism.
+    var displaySeconds by remember(status) { mutableIntStateOf(status.remainingSeconds) }
+    LaunchedEffect(status) {
+        while (status.isRunning && displaySeconds > 0) {
+            delay(1000)
+            displaySeconds -= 1
+        }
+    }
+
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onToggleTimer),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
@@ -79,8 +100,8 @@ private fun TimerHabitRow(habit: HabitRowUiState, status: HabitStatus.TimerStatu
             Text(habit.name, style = MaterialTheme.typography.bodyLarge)
             Text("Streak: ${habit.streak}d", style = MaterialTheme.typography.bodySmall)
         }
-        val minutes = status.remainingSeconds / 60
-        val seconds = status.remainingSeconds % 60
+        val minutes = displaySeconds / 60
+        val seconds = displaySeconds % 60
         Text(
             text = if (status.completed) "✓" else "%d:%02d".format(minutes, seconds),
             style = MaterialTheme.typography.titleMedium,

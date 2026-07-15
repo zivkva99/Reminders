@@ -1,10 +1,14 @@
 package com.ziv.reminders.ui.dashboard
 
+import android.content.Context
+import android.content.Intent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.ziv.reminders.data.DashboardDataSource
+import com.ziv.reminders.data.HabitStatus
 import com.ziv.reminders.data.isEnabledDay
+import com.ziv.reminders.service.TimerService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -39,6 +43,24 @@ class DashboardViewModel(private val dataSource: DashboardDataSource) : ViewMode
             dataSource.counterHabitRepository.increment(instance, LocalDate.now())
             refresh()
         }
+    }
+
+    /** Starts/stops TimerService (the single source of truth for the DB write) then
+     * optimistically flips the row locally — see this task's Interfaces note for why an
+     * immediate refresh() would race the service's own async write instead. */
+    fun onToggleTimer(instanceId: Long, context: Context) {
+        val row = _uiState.value.habits.firstOrNull { it.instanceId == instanceId } ?: return
+        val status = row.status as? HabitStatus.TimerStatus ?: return
+        val action = if (status.isRunning) TimerService.ACTION_STOP else TimerService.ACTION_START
+        context.startService(
+            Intent(context, TimerService::class.java)
+                .setAction(action)
+                .putExtra(TimerService.EXTRA_HABIT_INSTANCE_ID, instanceId)
+        )
+        val updatedStatus = status.copy(isRunning = !status.isRunning)
+        _uiState.value = _uiState.value.copy(
+            habits = _uiState.value.habits.map { if (it.instanceId == instanceId) it.copy(status = updatedStatus) else it }
+        )
     }
 
     companion object {

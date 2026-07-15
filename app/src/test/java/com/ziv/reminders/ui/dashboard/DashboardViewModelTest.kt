@@ -111,4 +111,29 @@ class DashboardViewModelTest {
 
         db.close()
     }
+
+    @Test
+    fun onToggleTimer_notRunning_startsTheServiceAndOptimisticallyFlipsIsRunning() = runTest {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java)
+            .setQueryCoroutineContext(StandardTestDispatcher(testScheduler))
+            .build()
+        db.habitInstanceDao().insertIfAbsent(
+            HabitInstance(2L, "TIMER", "Reading", 0b1111111, "t", "b", null, timerTargetSeconds = 900)
+        )
+        val viewModel = DashboardViewModel(TestAppContainer(db))
+        viewModel.refresh()
+        testScheduler.advanceUntilIdle()
+
+        viewModel.onToggleTimer(2L, context)
+
+        val status = viewModel.uiState.value.habits[0].status as HabitStatus.TimerStatus
+        assertTrue(status.isRunning)
+        val startedService = org.robolectric.Shadows.shadowOf(context as android.app.Application)
+            .nextStartedService
+        assertEquals(com.ziv.reminders.service.TimerService.ACTION_START, startedService?.action)
+        assertEquals(2L, startedService?.getLongExtra(com.ziv.reminders.service.TimerService.EXTRA_HABIT_INSTANCE_ID, -1L))
+
+        db.close()
+    }
 }
