@@ -11,7 +11,9 @@ import com.ziv.reminders.MainActivity
 import com.ziv.reminders.R
 import com.ziv.reminders.data.HabitInstance
 
-/** One channel per HabitInstance (not per-kind or shared) — see Global Constraints. */
+/** One channel per HabitInstance for its reminder notification (not per-kind or shared) — see
+ * Global Constraints. The ongoing Timer foreground notification gets its own second, low-
+ * importance, silent per-instance channel — see this plan's Global Constraints for why. */
 object HabitNotifications {
     fun channelId(instance: HabitInstance): String = "habit_${instance.id}"
     fun notificationId(instance: HabitInstance): Int = instance.id.toInt()
@@ -38,6 +40,52 @@ object HabitNotifications {
             .setContentText(instance.notificationBody)
             .setAutoCancel(true)
             .setContentIntent(contentIntent)
+            .build()
+    }
+
+    fun timerChannelId(habitInstanceId: Long): String = "habit_${habitInstanceId}_timer"
+
+    // Offset from notificationId(instance) (which uses the plain instance id) so the ongoing
+    // timer notification and the hourly reminder notification never collide on the same id.
+    fun timerNotificationId(habitInstanceId: Long): Int = (habitInstanceId * 1000).toInt()
+
+    fun createTimerChannel(context: Context, habitInstanceId: Long) {
+        val manager = context.getSystemService(NotificationManager::class.java)
+        manager.createNotificationChannel(
+            NotificationChannel(timerChannelId(habitInstanceId), "Timer", NotificationManager.IMPORTANCE_LOW)
+                .apply { setSound(null, null) }
+        )
+    }
+
+    private fun timerContentIntent(context: Context, habitInstanceId: Long): PendingIntent {
+        val activityIntent = Intent(context, MainActivity::class.java)
+            .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        return PendingIntent.getActivity(
+            context, timerNotificationId(habitInstanceId), activityIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+    }
+
+    // startForeground() must be called synchronously, before the instance can be loaded from
+    // Room (a suspend call) — this placeholder needs only the id, corrected via
+    // buildTimerNotification() within milliseconds once the instance is known (mirrors
+    // ReadBook's ReadingTimerService "0 remaining" placeholder pattern).
+    fun buildTimerPlaceholderNotification(context: Context, habitInstanceId: Long): Notification =
+        NotificationCompat.Builder(context, timerChannelId(habitInstanceId))
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setContentText("Timer running…")
+            .setOngoing(true)
+            .setContentIntent(timerContentIntent(context, habitInstanceId))
+            .build()
+
+    fun buildTimerNotification(context: Context, instance: HabitInstance, remainingSeconds: Int): Notification {
+        val minutes = remainingSeconds / 60
+        return NotificationCompat.Builder(context, timerChannelId(instance.id))
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setContentTitle(instance.name)
+            .setContentText("$minutes min left")
+            .setOngoing(true)
+            .setContentIntent(timerContentIntent(context, instance.id))
             .build()
     }
 }
