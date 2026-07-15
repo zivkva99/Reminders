@@ -38,6 +38,7 @@ class TimerHabitRepository(
         val key = today.toString()
         val existing = dao.getByDate(instance.id, key)
         if (existing?.completed == true) return existing // guard: don't restart an already-completed day
+        if (existing?.activeSessionStartedAt != null) return existing // idempotent — already running, don't reset the clock
         val row = existing?.copy(activeSessionStartedAt = clock.nowMillis())
             ?: TimerDailyProgress(
                 habitInstanceId = instance.id, date = key, targetSeconds = target, remainingSeconds = target,

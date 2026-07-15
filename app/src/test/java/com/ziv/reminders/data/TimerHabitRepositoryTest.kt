@@ -68,6 +68,20 @@ class TimerHabitRepositoryTest {
     }
 
     @Test
+    fun start_calledTwiceWhileAlreadyRunning_doesNotResetTheOriginalStartTimestamp() = runTest {
+        val clock = FakeClock(millis = 1_000_000L)
+        val dao = FakeTimerDailyProgressDao()
+        val repo = TimerHabitRepository(dao, clock)
+        val first = repo.start(instance, today)
+        clock.millis += 60_000L // 60s elapse while still running, no stop() called
+
+        val second = repo.start(instance, today) // called again while already running
+
+        assertEquals(first.activeSessionStartedAt, second.activeSessionStartedAt)
+        assertEquals(1_000_000L, second.activeSessionStartedAt)
+    }
+
+    @Test
     fun start_whenTodayAlreadyCompleted_isANoOp() = runTest {
         val clock = FakeClock(millis = 1_000_000L)
         val dao = FakeTimerDailyProgressDao()
