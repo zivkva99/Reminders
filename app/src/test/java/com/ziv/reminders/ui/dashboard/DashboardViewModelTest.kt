@@ -125,7 +125,7 @@ class DashboardViewModelTest {
         viewModel.refresh()
         testScheduler.advanceUntilIdle()
 
-        viewModel.onToggleTimer(2L, context)
+        viewModel.onToggleTimer(2L, context, displayedRemainingSeconds = 900)
 
         val status = viewModel.uiState.value.habits[0].status as HabitStatus.TimerStatus
         assertTrue(status.isRunning)
@@ -133,6 +133,34 @@ class DashboardViewModelTest {
             .nextStartedService
         assertEquals(com.ziv.reminders.service.TimerService.ACTION_START, startedService?.action)
         assertEquals(2L, startedService?.getLongExtra(com.ziv.reminders.service.TimerService.EXTRA_HABIT_INSTANCE_ID, -1L))
+
+        db.close()
+    }
+
+    @Test
+    fun onToggleTimer_running_optimisticFlipUsesTheCurrentlyDisplayedRemainingSeconds_notTheStaleBaseline() = runTest {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java)
+            .setQueryCoroutineContext(StandardTestDispatcher(testScheduler))
+            .build()
+        db.habitInstanceDao().insertIfAbsent(
+            HabitInstance(2L, "TIMER", "Reading", 0b1111111, "t", "b", null, timerTargetSeconds = 900)
+        )
+        val viewModel = DashboardViewModel(TestAppContainer(db))
+        viewModel.refresh()
+        testScheduler.advanceUntilIdle()
+
+        // Start — the ViewModel's own baseline stays 900; only the Composable ticks it locally.
+        viewModel.onToggleTimer(2L, context, displayedRemainingSeconds = 900)
+
+        // Simulate the Composable having ticked down locally to 841 (59s elapsed) by the time
+        // the user taps Stop — the optimistic flip must carry that displayed value forward, not
+        // the stale 900 baseline the ViewModel itself never updated while running.
+        viewModel.onToggleTimer(2L, context, displayedRemainingSeconds = 841)
+
+        val status = viewModel.uiState.value.habits[0].status as HabitStatus.TimerStatus
+        assertEquals(841, status.remainingSeconds)
+        assertEquals(false, status.isRunning)
 
         db.close()
     }

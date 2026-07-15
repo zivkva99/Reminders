@@ -47,8 +47,15 @@ class DashboardViewModel(private val dataSource: DashboardDataSource) : ViewMode
 
     /** Starts/stops TimerService (the single source of truth for the DB write) then
      * optimistically flips the row locally — see this task's Interfaces note for why an
-     * immediate refresh() would race the service's own async write instead. */
-    fun onToggleTimer(instanceId: Long, context: Context) {
+     * immediate refresh() would race the service's own async write instead.
+     *
+     * [displayedRemainingSeconds] is the value the Composable is currently showing (ticked down
+     * locally, 1Hz, while running) — the ViewModel's own `status.remainingSeconds` is a stale
+     * baseline that only changes on Start/Stop/refresh(), never every second. Carrying the
+     * displayed value into the optimistic update (instead of just flipping isRunning) is what
+     * stops the countdown visually jumping back to that stale baseline the instant Stop is
+     * tapped. */
+    fun onToggleTimer(instanceId: Long, context: Context, displayedRemainingSeconds: Int) {
         val row = _uiState.value.habits.firstOrNull { it.instanceId == instanceId } ?: return
         val status = row.status as? HabitStatus.TimerStatus ?: return
         val action = if (status.isRunning) TimerService.ACTION_STOP else TimerService.ACTION_START
@@ -57,7 +64,7 @@ class DashboardViewModel(private val dataSource: DashboardDataSource) : ViewMode
                 .setAction(action)
                 .putExtra(TimerService.EXTRA_HABIT_INSTANCE_ID, instanceId)
         )
-        val updatedStatus = status.copy(isRunning = !status.isRunning)
+        val updatedStatus = status.copy(isRunning = !status.isRunning, remainingSeconds = displayedRemainingSeconds)
         _uiState.value = _uiState.value.copy(
             habits = _uiState.value.habits.map { if (it.instanceId == instanceId) it.copy(status = updatedStatus) else it }
         )

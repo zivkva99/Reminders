@@ -44,7 +44,9 @@ fun DashboardScreen(viewModel: DashboardViewModel) {
             HabitRow(
                 habit = habit,
                 onIncrement = { viewModel.onIncrement(habit.instanceId) },
-                onToggleTimer = { viewModel.onToggleTimer(habit.instanceId, context) },
+                onToggleTimer = { displayedRemainingSeconds ->
+                    viewModel.onToggleTimer(habit.instanceId, context, displayedRemainingSeconds)
+                },
             )
             Spacer(Modifier.height(8.dp))
         }
@@ -52,7 +54,7 @@ fun DashboardScreen(viewModel: DashboardViewModel) {
 }
 
 @Composable
-private fun HabitRow(habit: HabitRowUiState, onIncrement: () -> Unit, onToggleTimer: () -> Unit) {
+private fun HabitRow(habit: HabitRowUiState, onIncrement: () -> Unit, onToggleTimer: (Int) -> Unit) {
     when (habit.status) {
         is HabitStatus.CounterStatus -> CounterHabitRow(habit, habit.status, onIncrement)
         is HabitStatus.TimerStatus -> TimerHabitRow(habit, habit.status, onToggleTimer)
@@ -78,7 +80,7 @@ private fun CounterHabitRow(habit: HabitRowUiState, status: HabitStatus.CounterS
 }
 
 @Composable
-private fun TimerHabitRow(habit: HabitRowUiState, status: HabitStatus.TimerStatus, onToggleTimer: () -> Unit) {
+private fun TimerHabitRow(habit: HabitRowUiState, status: HabitStatus.TimerStatus, onToggleTimer: (Int) -> Unit) {
     // Live 1Hz countdown while running — the ViewModel/DB only update on Start/Stop/Completion,
     // not every second; the visual tick lives here and resets whenever the underlying status
     // (a new baseline remainingSeconds, or isRunning flipping) actually changes. Mirrors
@@ -92,7 +94,10 @@ private fun TimerHabitRow(habit: HabitRowUiState, status: HabitStatus.TimerStatu
     }
 
     Row(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onToggleTimer),
+        // Pass the currently-displayed (ticked-down) value, not status.remainingSeconds — the
+        // ViewModel's optimistic flip uses this to avoid visually resetting to the stale
+        // pre-session baseline the instant Stop is tapped.
+        modifier = Modifier.fillMaxWidth().clickable(onClick = { onToggleTimer(displaySeconds) }),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
