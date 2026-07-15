@@ -44,6 +44,7 @@ class HabitReminderReceiver : BroadcastReceiver() {
                 val status = engine.todayStatus(instance, today())
                 val completed = when (status) {
                     is HabitStatus.CounterStatus -> status.completed
+                    is HabitStatus.TimerStatus -> status.completed
                 }
                 if (!completed) {
                     HabitNotifications.createChannel(context, instance)

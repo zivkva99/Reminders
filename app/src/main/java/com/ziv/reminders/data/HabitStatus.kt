@@ -7,4 +7,10 @@ package com.ziv.reminders.data
  */
 sealed interface HabitStatus {
     data class CounterStatus(val current: Int, val goal: Int, val completed: Boolean) : HabitStatus
+    data class TimerStatus(
+        val remainingSeconds: Int,
+        val targetSeconds: Int,
+        val isRunning: Boolean,
+        val completed: Boolean,
+    ) : HabitStatus
 }

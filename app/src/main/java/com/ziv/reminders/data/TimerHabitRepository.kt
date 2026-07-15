@@ -1,0 +1,82 @@
+package com.ziv.reminders.data
+
+import java.time.LocalDate
+
+/**
+ * Timestamp-delta model (mirrors ReadBook's proven ReadingTimerRepository): only
+ * TimerDailyProgress.activeSessionStartedAt is written while a session runs, and elapsed time
+ * is computed from it at read/stop time — never a periodic tick-decrement — so there's no
+ * data-loss window and no drift under Doze. Unlike ReadBook, streaks are computed on demand from
+ * completed-date rows (StreakCalculator), not cached in a separate Stats table, matching
+ * CounterHabitRepository's on-the-fly approach — and there's no resetToday, since neither
+ * Reminders kind has a reset affordance on this dashboard.
+ */
+class TimerHabitRepository(
+    private val dao: TimerDailyProgressDao,
+    private val clock: Clock,
+) {
+
+    suspend fun todayStatus(instance: HabitInstance, today: LocalDate): HabitStatus.TimerStatus {
+        val target = requireNotNull(instance.timerTargetSeconds) { "Timer habit ${instance.id} has no timerTargetSeconds" }
+        val row = dao.getByDate(instance.id, today.toString())
+            ?: return HabitStatus.TimerStatus(remainingSeconds = target, targetSeconds = target, isRunning = false, completed = false)
+        val startedAt = row.activeSessionStartedAt
+        val remaining = if (startedAt != null) {
+            val elapsedSeconds = ((clock.nowMillis() - startedAt) / 1000L).toInt()
+            (row.remainingSeconds - elapsedSeconds).coerceAtLeast(0)
+        } else {
+            row.remainingSeconds
+        }
+        return HabitStatus.TimerStatus(
+            remainingSeconds = remaining, targetSeconds = row.targetSeconds,
+            isRunning = startedAt != null, completed = row.completed,
+        )
+    }
+
+    suspend fun start(instance: HabitInstance, today: LocalDate): TimerDailyProgress {
+        val target = requireNotNull(instance.timerTargetSeconds) { "Timer habit ${instance.id} has no timerTargetSeconds" }
+        val key = today.toString()
+        val existing = dao.getByDate(instance.id, key)
+        if (existing?.completed == true) return existing // guard: don't restart an already-completed day
+        val row = existing?.copy(activeSessionStartedAt = clock.nowMillis())
+            ?: TimerDailyProgress(
+                habitInstanceId = instance.id, date = key, targetSeconds = target, remainingSeconds = target,
+                completed = false, completedAt = null, activeSessionStartedAt = clock.nowMillis(),
+            )
+        dao.upsert(row)
+        return row
+    }
+
+    suspend fun stop(instance: HabitInstance, today: LocalDate): TimerDailyProgress? {
+        val row = dao.getByDate(instance.id, today.toString()) ?: return null
+        if (row.activeSessionStartedAt == null) return row // idempotent — nothing running
+        return finishSession(row)
+    }
+
+    /** Call on app launch: finds every session left dangling by a process kill, across every
+     * habit instance, and closes each one out — see RemindersApp's startup self-heal (Task 8). */
+    suspend fun reconcileCrashedSessions(): List<TimerDailyProgress> =
+        dao.getActiveSessions().map { finishSession(it) }
+
+    suspend fun currentStreak(instance: HabitInstance, today: LocalDate): Int {
+        val completedDates = dao.getCompletedDates(instance.id)
+            .mapNotNull { runCatching { LocalDate.parse(it) }.getOrNull() }
+            .toSet()
+        return StreakCalculator.calculate(completedDates, instance.enabledDaysMask, today)
+    }
+
+    private suspend fun finishSession(row: TimerDailyProgress): TimerDailyProgress {
+        val startedAt = requireNotNull(row.activeSessionStartedAt)
+        val elapsedSeconds = ((clock.nowMillis() - startedAt) / 1000L).toInt()
+        val newRemaining = (row.remainingSeconds - elapsedSeconds).coerceAtLeast(0)
+        val justCompleted = newRemaining == 0
+        val updated = row.copy(
+            remainingSeconds = newRemaining,
+            completed = row.completed || justCompleted,
+            completedAt = if (justCompleted) clock.nowMillis() else row.completedAt,
+            activeSessionStartedAt = null,
+        )
+        dao.upsert(updated)
+        return updated
+    }
+}

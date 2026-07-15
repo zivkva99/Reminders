@@ -30,6 +30,11 @@ class DashboardViewModel(private val dataSource: DashboardDataSource) : ViewMode
                 val streak = dataSource.habitEngine.currentStreak(instance, today)
                 val (statusText, completed) = when (status) {
                     is HabitStatus.CounterStatus -> "${status.current}/${status.goal}" to status.completed
+                    is HabitStatus.TimerStatus -> {
+                        val minutes = status.remainingSeconds / 60
+                        val seconds = status.remainingSeconds % 60
+                        "%d:%02d".format(minutes, seconds) to status.completed
+                    }
                 }
                 HabitRowUiState(instance.id, instance.name, statusText, completed, streak)
             }
