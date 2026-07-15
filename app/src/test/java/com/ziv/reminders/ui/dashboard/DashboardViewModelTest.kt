@@ -5,6 +5,7 @@ import androidx.test.core.app.ApplicationProvider
 import android.content.Context
 import com.ziv.reminders.data.AppDatabase
 import com.ziv.reminders.data.HabitInstance
+import com.ziv.reminders.data.HabitStatus
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
@@ -17,12 +18,6 @@ import kotlin.test.assertTrue
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class DashboardViewModelTest {
-
-    // DB is created inside each runTest block below, not a shared helper outside it — its
-    // setQueryCoroutineContext must reference the enclosing runTest's own testScheduler, or the
-    // DB's dispatcher won't advance in lockstep with the test's virtual clock and
-    // advanceUntilIdle() won't flush its queued work (same reason ReadBook's NudgeReceiverTest
-    // constructs its db inline per-test rather than via a shared no-argument helper).
 
     @Test
     fun refresh_oneHabitNotYetDone_populatesOneRow() = runTest {
@@ -41,14 +36,13 @@ class DashboardViewModelTest {
         val state = viewModel.uiState.value
         assertTrue(state.isLoaded)
         assertEquals(1, state.habits.size)
-        assertEquals("0/5", state.habits[0].statusText)
-        assertEquals(false, state.habits[0].completed)
+        assertEquals(HabitStatus.CounterStatus(current = 0, goal = 5, completed = false), state.habits[0].status)
 
         db.close()
     }
 
     @Test
-    fun onIncrement_updatesStatusTextAndCompletion() = runTest {
+    fun onIncrement_updatesStatusAndCompletion() = runTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java)
             .setQueryCoroutineContext(StandardTestDispatcher(testScheduler))
@@ -65,9 +59,9 @@ class DashboardViewModelTest {
             testScheduler.advanceUntilIdle()
         }
 
-        val state = viewModel.uiState.value
-        assertEquals("5/5", state.habits[0].statusText)
-        assertEquals(true, state.habits[0].completed)
+        val status = viewModel.uiState.value.habits[0].status as HabitStatus.CounterStatus
+        assertEquals(5, status.current)
+        assertTrue(status.completed)
 
         db.close()
     }
@@ -93,6 +87,27 @@ class DashboardViewModelTest {
         assertTrue(state.isLoaded)
         assertEquals(1, state.habits.size)
         assertEquals("Exercise", state.habits[0].name)
+
+        db.close()
+    }
+
+    @Test
+    fun refresh_timerHabitNotYetStarted_populatesRowAtFullTarget() = runTest {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java)
+            .setQueryCoroutineContext(StandardTestDispatcher(testScheduler))
+            .build()
+        db.habitInstanceDao().insertIfAbsent(
+            HabitInstance(2L, "TIMER", "Reading", 0b1111111, "t", "b", null, timerTargetSeconds = 900)
+        )
+        val viewModel = DashboardViewModel(TestAppContainer(db))
+
+        viewModel.refresh()
+        testScheduler.advanceUntilIdle()
+
+        val status = viewModel.uiState.value.habits[0].status as HabitStatus.TimerStatus
+        assertEquals(900, status.remainingSeconds)
+        assertEquals(false, status.isRunning)
 
         db.close()
     }

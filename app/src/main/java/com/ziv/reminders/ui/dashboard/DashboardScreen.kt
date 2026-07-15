@@ -19,13 +19,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
+import com.ziv.reminders.data.HabitStatus
 
 @Composable
 fun DashboardScreen(viewModel: DashboardViewModel) {
     val uiState by viewModel.uiState.collectAsState()
 
     // Re-reads current state on every resume (first composition, backgrounding, notification
-    // tap) so the dashboard never shows stale data — see final-review Issue 2/4.
+    // tap) so the dashboard never shows stale data — see Plan 1's final-review Issue 2/4.
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.refresh() }
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
@@ -41,6 +42,14 @@ fun DashboardScreen(viewModel: DashboardViewModel) {
 
 @Composable
 private fun HabitRow(habit: HabitRowUiState, onIncrement: () -> Unit) {
+    when (habit.status) {
+        is HabitStatus.CounterStatus -> CounterHabitRow(habit, habit.status, onIncrement)
+        is HabitStatus.TimerStatus -> TimerHabitRow(habit, habit.status)
+    }
+}
+
+@Composable
+private fun CounterHabitRow(habit: HabitRowUiState, status: HabitStatus.CounterStatus, onIncrement: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onIncrement),
         verticalAlignment = Alignment.CenterVertically,
@@ -51,7 +60,29 @@ private fun HabitRow(habit: HabitRowUiState, onIncrement: () -> Unit) {
             Text("Streak: ${habit.streak}d", style = MaterialTheme.typography.bodySmall)
         }
         Text(
-            text = if (habit.completed) "✓ ${habit.statusText}" else habit.statusText,
+            text = if (status.completed) "✓ ${status.current}/${status.goal}" else "${status.current}/${status.goal}",
+            style = MaterialTheme.typography.titleMedium,
+        )
+    }
+}
+
+// Read-only for now — Task 9 adds the live 1Hz countdown and Start/Stop tap once TimerService
+// exists to actually run a session.
+@Composable
+private fun TimerHabitRow(habit: HabitRowUiState, status: HabitStatus.TimerStatus) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Column {
+            Text(habit.name, style = MaterialTheme.typography.bodyLarge)
+            Text("Streak: ${habit.streak}d", style = MaterialTheme.typography.bodySmall)
+        }
+        val minutes = status.remainingSeconds / 60
+        val seconds = status.remainingSeconds % 60
+        Text(
+            text = if (status.completed) "✓" else "%d:%02d".format(minutes, seconds),
             style = MaterialTheme.typography.titleMedium,
         )
     }

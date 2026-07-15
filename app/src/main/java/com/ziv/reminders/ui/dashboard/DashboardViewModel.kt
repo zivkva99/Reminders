@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.ziv.reminders.data.DashboardDataSource
-import com.ziv.reminders.data.HabitStatus
 import com.ziv.reminders.data.isEnabledDay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -28,15 +27,7 @@ class DashboardViewModel(private val dataSource: DashboardDataSource) : ViewMode
             val rows = instances.map { instance ->
                 val status = dataSource.habitEngine.todayStatus(instance, today)
                 val streak = dataSource.habitEngine.currentStreak(instance, today)
-                val (statusText, completed) = when (status) {
-                    is HabitStatus.CounterStatus -> "${status.current}/${status.goal}" to status.completed
-                    is HabitStatus.TimerStatus -> {
-                        val minutes = status.remainingSeconds / 60
-                        val seconds = status.remainingSeconds % 60
-                        "%d:%02d".format(minutes, seconds) to status.completed
-                    }
-                }
-                HabitRowUiState(instance.id, instance.name, statusText, completed, streak)
+                HabitRowUiState(instance.id, instance.name, status, streak)
             }
             _uiState.value = DashboardUiState(habits = rows, isLoaded = true)
         }
