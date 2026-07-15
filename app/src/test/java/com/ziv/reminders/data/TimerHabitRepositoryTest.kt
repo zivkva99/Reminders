@@ -175,6 +175,22 @@ class TimerHabitRepositoryTest {
     }
 
     @Test
+    fun reconcileCrashedSessions_elapsedExceedsTarget_reducesRemainingToZero_butDoesNotMarkCompleted() = runTest {
+        val clock = FakeClock(millis = 1_000_000L)
+        val dao = FakeTimerDailyProgressDao()
+        val repo = TimerHabitRepository(dao, clock)
+        repo.start(instance, today) // simulate a session never stopped (crash)
+        clock.millis += 900_000L + 500_000L // well past the 900s target, detected later
+
+        val reconciled = repo.reconcileCrashedSessions()
+
+        assertEquals(1, reconciled.size)
+        assertEquals(0, reconciled[0].remainingSeconds)
+        assertFalse(reconciled[0].completed)
+        assertNull(reconciled[0].completedAt)
+    }
+
+    @Test
     fun currentStreak_delegatesToStreakCalculatorWithTheInstancesEnabledDaysMask() = runTest {
         val dao = FakeTimerDailyProgressDao()
         val thursday = today.plusDays(4) // Thursday, still within Sun-Thu

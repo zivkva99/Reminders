@@ -55,9 +55,12 @@ class TimerHabitRepository(
     }
 
     /** Call on app launch: finds every session left dangling by a process kill, across every
-     * habit instance, and closes each one out — see RemindersApp's startup self-heal (Task 8). */
+     * habit instance, and closes each one out — see RemindersApp's startup self-heal (Task 8).
+     * allowCompletion = false: a crash-reconciled session must never itself mark a day completed
+     * or extend the streak — the elapsed gap it credits may span hours of the app simply being
+     * closed, not real usage. Only a genuine in-app stop() may mark a day completed. */
     suspend fun reconcileCrashedSessions(): List<TimerDailyProgress> =
-        dao.getActiveSessions().map { finishSession(it) }
+        dao.getActiveSessions().map { finishSession(it, allowCompletion = false) }
 
     suspend fun currentStreak(instance: HabitInstance, today: LocalDate): Int {
         val completedDates = dao.getCompletedDates(instance.id)
@@ -66,11 +69,11 @@ class TimerHabitRepository(
         return StreakCalculator.calculate(completedDates, instance.enabledDaysMask, today)
     }
 
-    private suspend fun finishSession(row: TimerDailyProgress): TimerDailyProgress {
+    private suspend fun finishSession(row: TimerDailyProgress, allowCompletion: Boolean = true): TimerDailyProgress {
         val startedAt = requireNotNull(row.activeSessionStartedAt)
         val elapsedSeconds = ((clock.nowMillis() - startedAt) / 1000L).toInt()
         val newRemaining = (row.remainingSeconds - elapsedSeconds).coerceAtLeast(0)
-        val justCompleted = newRemaining == 0
+        val justCompleted = allowCompletion && newRemaining == 0
         val updated = row.copy(
             remainingSeconds = newRemaining,
             completed = row.completed || justCompleted,
