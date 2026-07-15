@@ -20,7 +20,8 @@ class AppContainer(context: Context) : DashboardDataSource {
     val counterDailyProgressDao get() = db.counterDailyProgressDao()
     val timerDailyProgressDao get() = db.timerDailyProgressDao()
     override val counterHabitRepository: CounterHabitRepository by lazy { CounterHabitRepository(counterDailyProgressDao) }
-    override val habitEngine: HabitEngine by lazy { HabitEngine(counterHabitRepository) }
+    val timerHabitRepository: TimerHabitRepository by lazy { TimerHabitRepository(timerDailyProgressDao, SystemClock) }
+    override val habitEngine: HabitEngine by lazy { HabitEngine(counterHabitRepository, timerHabitRepository) }
     val habitScheduler: HabitScheduler by lazy { HabitScheduler(appContext) }
 }
 

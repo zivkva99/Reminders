@@ -55,7 +55,10 @@ class HabitReminderReceiverTest {
         val receiver = HabitReminderReceiver()
         receiver.today = { LocalDate.of(2026, 7, 14) }
         receiver.habitInstanceDaoOverride = db.habitInstanceDao()
-        receiver.habitEngineOverride = HabitEngine(CounterHabitRepository(db.counterDailyProgressDao()))
+        receiver.habitEngineOverride = HabitEngine(
+            CounterHabitRepository(db.counterDailyProgressDao()),
+            com.ziv.reminders.data.TimerHabitRepository(db.timerDailyProgressDao(), com.ziv.reminders.data.SystemClock),
+        )
         receiver.scopeOverride = CoroutineScope(StandardTestDispatcher(testScheduler))
 
         dispatch(receiver, habitInstanceId = 1L)
@@ -83,7 +86,10 @@ class HabitReminderReceiverTest {
         val receiver = HabitReminderReceiver()
         receiver.today = { LocalDate.of(2026, 7, 14) }
         receiver.habitInstanceDaoOverride = db.habitInstanceDao()
-        receiver.habitEngineOverride = HabitEngine(CounterHabitRepository(db.counterDailyProgressDao()))
+        receiver.habitEngineOverride = HabitEngine(
+            CounterHabitRepository(db.counterDailyProgressDao()),
+            com.ziv.reminders.data.TimerHabitRepository(db.timerDailyProgressDao(), com.ziv.reminders.data.SystemClock),
+        )
         receiver.scopeOverride = CoroutineScope(StandardTestDispatcher(testScheduler))
 
         dispatch(receiver, habitInstanceId = 1L)
