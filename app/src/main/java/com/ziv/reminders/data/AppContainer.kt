@@ -41,6 +41,7 @@ class AppContainer(context: Context) : DashboardDataSource {
     }
 
     override val habitEngine: HabitEngine by lazy { HabitEngine(counterHabitRepository, timerHabitRepository, scheduleCursorRepository) }
+    val crossHabitEvaluator: CrossHabitEvaluator by lazy { CrossHabitEvaluator(habitInstanceDao, habitEngine, evaluatorEscalationDao) }
     val habitScheduler: HabitScheduler by lazy { HabitScheduler(appContext) }
 }
 
