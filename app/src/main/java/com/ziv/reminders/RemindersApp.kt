@@ -3,6 +3,7 @@ package com.ziv.reminders
 import android.app.Application
 import com.ziv.reminders.data.AppContainer
 import com.ziv.reminders.data.ensureHabitsSeeded
+import com.ziv.reminders.evaluator.EscalationWorker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -17,8 +18,9 @@ class RemindersApp : Application() {
     override fun onCreate() {
         super.onCreate()
         // Self-heal on every app open: seeds the known habit instances on first launch, closes
-        // out any Timer session left dangling by a process kill, then ensures today's reminders
-        // and the rollover chain are scheduled even if the midnight/boot jobs never got to run.
+        // out any Timer session left dangling by a process kill, ensures today's reminders and
+        // the rollover chain are scheduled even if the midnight/boot jobs never got to run, and
+        // ensures the cross-habit evaluator's WorkManager chain is running.
         appScope.launch {
             try {
                 ensureHabitsSeeded(container.habitInstanceDao)
@@ -28,6 +30,7 @@ class RemindersApp : Application() {
                     container.habitScheduler.scheduleRemindersForToday(today, instance)
                 }
                 container.habitScheduler.scheduleRollover(from = today)
+                EscalationWorker.ensureScheduled(this@RemindersApp)
             } catch (e: Exception) {
                 // Never let a startup self-heal failure crash the app — same resilience as
                 // BootReceiver's structurally identical self-heal logic.

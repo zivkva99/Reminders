@@ -62,6 +62,7 @@ class HabitReminderReceiverTest {
                 db.scheduleCursorProgressDao(), db.scheduleCursorDailyProgressDao(), emptyList(),
             ),
         )
+        receiver.evaluatorEscalationDaoOverride = db.evaluatorEscalationDao()
         receiver.scopeOverride = CoroutineScope(StandardTestDispatcher(testScheduler))
 
         dispatch(receiver, habitInstanceId = 1L)
@@ -96,6 +97,40 @@ class HabitReminderReceiverTest {
                 db.scheduleCursorProgressDao(), db.scheduleCursorDailyProgressDao(), emptyList(),
             ),
         )
+        receiver.evaluatorEscalationDaoOverride = db.evaluatorEscalationDao()
+        receiver.scopeOverride = CoroutineScope(StandardTestDispatcher(testScheduler))
+
+        dispatch(receiver, habitInstanceId = 1L)
+        testScheduler.advanceUntilIdle()
+
+        val manager = context.getSystemService(NotificationManager::class.java)
+        val notification = manager.activeNotifications.firstOrNull { it.id == HabitNotifications.notificationId(instance) }
+        assertNull(notification)
+
+        db.close()
+    }
+
+    @Test
+    fun onReceive_todayAlreadyEscalated_postsNothing() = runTest {
+        val db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java)
+            .setQueryCoroutineContext(StandardTestDispatcher(testScheduler))
+            .build()
+        db.habitInstanceDao().insertIfAbsent(instance)
+        db.evaluatorEscalationDao().upsert(
+            com.ziv.reminders.data.EvaluatorEscalation(1L, "2026-07-14", escalated = true)
+        )
+
+        val receiver = HabitReminderReceiver()
+        receiver.today = { LocalDate.of(2026, 7, 14) }
+        receiver.habitInstanceDaoOverride = db.habitInstanceDao()
+        receiver.habitEngineOverride = HabitEngine(
+            CounterHabitRepository(db.counterDailyProgressDao()),
+            com.ziv.reminders.data.TimerHabitRepository(db.timerDailyProgressDao(), com.ziv.reminders.data.SystemClock),
+            com.ziv.reminders.data.ScheduleCursorRepository(
+                db.scheduleCursorProgressDao(), db.scheduleCursorDailyProgressDao(), emptyList(),
+            ),
+        )
+        receiver.evaluatorEscalationDaoOverride = db.evaluatorEscalationDao()
         receiver.scopeOverride = CoroutineScope(StandardTestDispatcher(testScheduler))
 
         dispatch(receiver, habitInstanceId = 1L)

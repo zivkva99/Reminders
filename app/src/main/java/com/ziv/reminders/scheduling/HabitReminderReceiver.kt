@@ -5,6 +5,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import com.ziv.reminders.RemindersApp
+import com.ziv.reminders.data.EvaluatorEscalationDao
 import com.ziv.reminders.data.HabitInstanceDao
 import com.ziv.reminders.data.HabitStatus
 import com.ziv.reminders.engine.HabitEngine
@@ -15,12 +16,15 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
-/** Fired by AlarmManager at each hourly reminder time. A no-op if today is already completed. */
+/** Fired by AlarmManager at each hourly reminder time. A no-op if today is already completed,
+ * or if today's reminder was already escalated by the cross-habit evaluator (an escalated
+ * notification must not be silently downgraded back to plain wording an hour later). */
 class HabitReminderReceiver : BroadcastReceiver() {
 
     internal var today: () -> LocalDate = { LocalDate.now() }
     internal var habitInstanceDaoOverride: HabitInstanceDao? = null
     internal var habitEngineOverride: HabitEngine? = null
+    internal var evaluatorEscalationDaoOverride: EvaluatorEscalationDao? = null
     internal var scopeOverride: CoroutineScope? = null
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -37,6 +41,8 @@ class HabitReminderReceiver : BroadcastReceiver() {
             ?: (context.applicationContext as RemindersApp).container.habitInstanceDao
         val engine = habitEngineOverride
             ?: (context.applicationContext as RemindersApp).container.habitEngine
+        val escalationDao = evaluatorEscalationDaoOverride
+            ?: (context.applicationContext as RemindersApp).container.evaluatorEscalationDao
         val scope = scopeOverride ?: CoroutineScope(SupervisorJob() + Dispatchers.Default)
         scope.launch {
             try {
@@ -47,7 +53,8 @@ class HabitReminderReceiver : BroadcastReceiver() {
                     is HabitStatus.TimerStatus -> status.completed
                     is HabitStatus.ScheduleCursorStatus -> status.completed
                 }
-                if (!completed) {
+                val alreadyEscalatedToday = escalationDao.getByDate(habitInstanceId, today().toString())?.escalated == true
+                if (!completed && !alreadyEscalatedToday) {
                     HabitNotifications.createChannel(context, instance)
                     val manager = context.getSystemService(NotificationManager::class.java)
                     manager.notify(HabitNotifications.notificationId(instance), HabitNotifications.buildReminderNotification(context, instance))
