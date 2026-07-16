@@ -31,10 +31,11 @@ Twice daily — **8:00am** and **1:00pm** — check three things about *today*:
 If all three hold, escalate Reading's reminder notification: stronger wording, and a
 higher-priority channel (sound + heads-up), replacing (not duplicating) Reading's
 existing reminder notification for today. If the condition isn't met at 8am but becomes
-true by 1pm, escalation happens then instead. If it's already true at 8am, the escalated
-notification simply lands early — the 1pm run re-checks but has nothing further to do if
-Reading is by then completed (the run is a no-op once Reading is done, regardless of
-Exercise's state).
+true by 1pm, escalation happens then instead. If it's already escalated today (from the
+8am run), the 1pm run is a no-op regardless of whether the condition still holds — it
+checks the escalation flag first and only evaluates/re-fires if today hasn't been
+escalated yet. This avoids a second sound/heads-up alert for the same day's already-fired
+escalation.
 
 This is a single hardcoded condition, not a generic rule-authoring engine — consistent
 with the original design doc's explicit "3 kinds, not a fully generic engine" instinct
@@ -108,8 +109,10 @@ rule.
 - **`EvaluatorEscalation`** (Room entity) + **`EvaluatorEscalationDao`**: `getByDate(habitInstanceId,
   date): EvaluatorEscalation?`, `upsert(...)`. Schema v3→v4 migration, real `Migration`
   object (never `fallbackToDestructiveMigration()`), no new `habit_instance` column.
-- **`CrossHabitEvaluator`**: `suspend fun evaluate(today: LocalDate)` — reads Exercise's
-  and Reading's `todayStatus`/`currentStreak` via the existing `HabitEngine`
+- **`CrossHabitEvaluator`**: `suspend fun evaluate(today: LocalDate)` — first checks
+  `EvaluatorEscalationDao.getByDate(READING_HABIT_INSTANCE_ID, today)?.escalated`; if
+  already `true`, returns immediately (no re-evaluation, no re-firing). Otherwise reads
+  Exercise's and Reading's `todayStatus`/`currentStreak` via the existing `HabitEngine`
   (looking up both known seeded instance IDs, `EXERCISE_HABIT_INSTANCE_ID` and
   `READING_HABIT_INSTANCE_ID`), applies the rule, and if escalating: writes the
   `EvaluatorEscalation` flag for Reading + posts the escalated notification.
@@ -141,7 +144,9 @@ the evaluator skips silently rather than crashing.
 
 - `CrossHabitEvaluator`: TDD'd with fake DAOs/a real `HabitEngine` — escalates when all
   three conditions hold; doesn't when Exercise is done; doesn't when Reading is done;
-  doesn't when Reading's streak is 0; correctly writes the escalation flag.
+  doesn't when Reading's streak is 0; correctly writes the escalation flag; is a no-op
+  (no re-fire, no re-write) when today is already escalated, even if the three-part
+  condition still holds.
 - `HabitReminderReceiver`: one new test for the skip-when-escalated-today path.
 - `EscalationWorker`: this project's first use of `androidx.work:work-testing`
   (`TestListenableWorkerBuilder`) — no existing precedent in this codebase to follow, so
