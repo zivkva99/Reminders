@@ -47,6 +47,7 @@ fun DashboardScreen(viewModel: DashboardViewModel) {
                 onToggleTimer = { displayedRemainingSeconds ->
                     viewModel.onToggleTimer(habit.instanceId, context, displayedRemainingSeconds)
                 },
+                onMarkRead = { viewModel.onMarkRead(habit.instanceId) },
             )
             Spacer(Modifier.height(8.dp))
         }
@@ -54,14 +55,16 @@ fun DashboardScreen(viewModel: DashboardViewModel) {
 }
 
 @Composable
-private fun HabitRow(habit: HabitRowUiState, onIncrement: () -> Unit, onToggleTimer: (Int) -> Unit) {
+private fun HabitRow(
+    habit: HabitRowUiState,
+    onIncrement: () -> Unit,
+    onToggleTimer: (Int) -> Unit,
+    onMarkRead: () -> Unit,
+) {
     when (habit.status) {
         is HabitStatus.CounterStatus -> CounterHabitRow(habit, habit.status, onIncrement)
         is HabitStatus.TimerStatus -> TimerHabitRow(habit, habit.status, onToggleTimer)
-        // Real row rendering is Task 5's scope expansion; this task only needs the module to
-        // compile again now that HabitStatus has a third subtype (Kotlin requires this `when`
-        // to be exhaustive even though it's used as a statement, not an expression).
-        is HabitStatus.ScheduleCursorStatus -> Unit
+        is HabitStatus.ScheduleCursorStatus -> ScheduleCursorHabitRow(habit, habit.status, onMarkRead)
     }
 }
 
@@ -113,6 +116,25 @@ private fun TimerHabitRow(habit: HabitRowUiState, status: HabitStatus.TimerStatu
         val seconds = displaySeconds % 60
         Text(
             text = if (status.completed) "✓" else "%d:%02d".format(minutes, seconds),
+            style = MaterialTheme.typography.titleMedium,
+        )
+    }
+}
+
+@Composable
+private fun ScheduleCursorHabitRow(habit: HabitRowUiState, status: HabitStatus.ScheduleCursorStatus, onMarkRead: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onMarkRead),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Column {
+            Text(habit.name, style = MaterialTheme.typography.bodyLarge)
+            Text("Streak: ${habit.streak}d", style = MaterialTheme.typography.bodySmall)
+        }
+        val chapterText = if (status.finished) "Finished" else "${status.book} ${status.chapterHeb}"
+        Text(
+            text = if (status.completed) "✓ $chapterText" else chapterText,
             style = MaterialTheme.typography.titleMedium,
         )
     }

@@ -164,4 +164,29 @@ class DashboardViewModelTest {
 
         db.close()
     }
+
+    @Test
+    fun onMarkRead_advancesTheCursorAndMarksTodayCompleted() = runTest {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java)
+            .setQueryCoroutineContext(StandardTestDispatcher(testScheduler))
+            .build()
+        db.habitInstanceDao().insertIfAbsent(
+            HabitInstance(3L, "SCHEDULE_CURSOR", "Tanakh", 0b1111111, "t", "b", null)
+        )
+        val schedule = listOf(
+            com.ziv.reminders.data.ScheduleEntry("א", "א׳", java.time.LocalDate.now()),
+        )
+        val viewModel = DashboardViewModel(TestAppContainer(db, schedule))
+        viewModel.refresh()
+        testScheduler.advanceUntilIdle()
+
+        viewModel.onMarkRead(3L)
+        testScheduler.advanceUntilIdle()
+
+        val status = viewModel.uiState.value.habits[0].status as HabitStatus.ScheduleCursorStatus
+        assertTrue(status.completed)
+
+        db.close()
+    }
 }

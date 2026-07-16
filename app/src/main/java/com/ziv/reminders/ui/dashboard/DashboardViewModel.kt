@@ -45,6 +45,14 @@ class DashboardViewModel(private val dataSource: DashboardDataSource) : ViewMode
         }
     }
 
+    fun onMarkRead(instanceId: Long) {
+        viewModelScope.launch {
+            val instance = dataSource.habitInstanceDao.getById(instanceId) ?: return@launch
+            dataSource.scheduleCursorRepository.markRead(instance, LocalDate.now())
+            refresh()
+        }
+    }
+
     /** Starts/stops TimerService (the single source of truth for the DB write) then
      * optimistically flips the row locally — see this task's Interfaces note for why an
      * immediate refresh() would race the service's own async write instead.
