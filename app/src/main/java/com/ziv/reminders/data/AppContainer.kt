@@ -12,13 +12,15 @@ class AppContainer(context: Context) : DashboardDataSource {
     private val db: AppDatabase by lazy {
         Room.databaseBuilder(appContext, AppDatabase::class.java, "reminders.db")
             // Never fallbackToDestructiveMigration() — see Global Constraints.
-            .addMigrations(AppDatabase.MIGRATION_1_2)
+            .addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3)
             .build()
     }
 
     override val habitInstanceDao get() = db.habitInstanceDao()
     val counterDailyProgressDao get() = db.counterDailyProgressDao()
     val timerDailyProgressDao get() = db.timerDailyProgressDao()
+    val scheduleCursorProgressDao get() = db.scheduleCursorProgressDao()
+    val scheduleCursorDailyProgressDao get() = db.scheduleCursorDailyProgressDao()
     override val counterHabitRepository: CounterHabitRepository by lazy { CounterHabitRepository(counterDailyProgressDao) }
     val timerHabitRepository: TimerHabitRepository by lazy { TimerHabitRepository(timerDailyProgressDao, SystemClock) }
     override val habitEngine: HabitEngine by lazy { HabitEngine(counterHabitRepository, timerHabitRepository) }
