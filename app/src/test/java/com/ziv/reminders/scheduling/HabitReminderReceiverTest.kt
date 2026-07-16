@@ -58,6 +58,9 @@ class HabitReminderReceiverTest {
         receiver.habitEngineOverride = HabitEngine(
             CounterHabitRepository(db.counterDailyProgressDao()),
             com.ziv.reminders.data.TimerHabitRepository(db.timerDailyProgressDao(), com.ziv.reminders.data.SystemClock),
+            com.ziv.reminders.data.ScheduleCursorRepository(
+                db.scheduleCursorProgressDao(), db.scheduleCursorDailyProgressDao(), emptyList(),
+            ),
         )
         receiver.scopeOverride = CoroutineScope(StandardTestDispatcher(testScheduler))
 
@@ -89,6 +92,9 @@ class HabitReminderReceiverTest {
         receiver.habitEngineOverride = HabitEngine(
             CounterHabitRepository(db.counterDailyProgressDao()),
             com.ziv.reminders.data.TimerHabitRepository(db.timerDailyProgressDao(), com.ziv.reminders.data.SystemClock),
+            com.ziv.reminders.data.ScheduleCursorRepository(
+                db.scheduleCursorProgressDao(), db.scheduleCursorDailyProgressDao(), emptyList(),
+            ),
         )
         receiver.scopeOverride = CoroutineScope(StandardTestDispatcher(testScheduler))
 
