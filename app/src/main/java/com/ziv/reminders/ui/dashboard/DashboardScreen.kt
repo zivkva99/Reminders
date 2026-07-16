@@ -58,6 +58,10 @@ private fun HabitRow(habit: HabitRowUiState, onIncrement: () -> Unit, onToggleTi
     when (habit.status) {
         is HabitStatus.CounterStatus -> CounterHabitRow(habit, habit.status, onIncrement)
         is HabitStatus.TimerStatus -> TimerHabitRow(habit, habit.status, onToggleTimer)
+        // Real row rendering is Task 5's scope expansion; this task only needs the module to
+        // compile again now that HabitStatus has a third subtype (Kotlin requires this `when`
+        // to be exhaustive even though it's used as a statement, not an expression).
+        is HabitStatus.ScheduleCursorStatus -> Unit
     }
 }
 

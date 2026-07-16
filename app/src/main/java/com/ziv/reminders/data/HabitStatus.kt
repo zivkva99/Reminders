@@ -13,4 +13,11 @@ sealed interface HabitStatus {
         val isRunning: Boolean,
         val completed: Boolean,
     ) : HabitStatus
+    data class ScheduleCursorStatus(
+        val book: String?,
+        val chapterHeb: String?,
+        val dueCount: Int,
+        val completed: Boolean,
+        val finished: Boolean,
+    ) : HabitStatus
 }

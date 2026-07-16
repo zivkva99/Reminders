@@ -45,6 +45,7 @@ class HabitReminderReceiver : BroadcastReceiver() {
                 val completed = when (status) {
                     is HabitStatus.CounterStatus -> status.completed
                     is HabitStatus.TimerStatus -> status.completed
+                    is HabitStatus.ScheduleCursorStatus -> status.completed
                 }
                 if (!completed) {
                     HabitNotifications.createChannel(context, instance)
