@@ -9,8 +9,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
     entities = [
         HabitInstance::class, CounterDailyProgress::class, TimerDailyProgress::class,
         ScheduleCursorProgress::class, ScheduleCursorDailyProgress::class,
+        EvaluatorEscalation::class,
     ],
-    version = 3,
+    version = 4,
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun habitInstanceDao(): HabitInstanceDao
@@ -18,6 +19,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun timerDailyProgressDao(): TimerDailyProgressDao
     abstract fun scheduleCursorProgressDao(): ScheduleCursorProgressDao
     abstract fun scheduleCursorDailyProgressDao(): ScheduleCursorDailyProgressDao
+    abstract fun evaluatorEscalationDao(): EvaluatorEscalationDao
 
     companion object {
         /** Adds Timer-with-duration kind support — see Plan 2. */
@@ -51,6 +53,19 @@ abstract class AppDatabase : RoomDatabase() {
                         "`habitInstanceId` INTEGER NOT NULL, `date` TEXT NOT NULL, " +
                         "`entriesMarkedRead` INTEGER NOT NULL, `completed` INTEGER NOT NULL, " +
                         "PRIMARY KEY(`habitInstanceId`, `date`))"
+                )
+            }
+        }
+
+        /** Adds the cross-habit evaluator's escalation-tracking table — a per-day flag,
+         * no new habit_instance column. Never fallbackToDestructiveMigration() — see
+         * Global Constraints. */
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `evaluator_escalation` (" +
+                        "`habitInstanceId` INTEGER NOT NULL, `date` TEXT NOT NULL, " +
+                        "`escalated` INTEGER NOT NULL, PRIMARY KEY(`habitInstanceId`, `date`))"
                 )
             }
         }
