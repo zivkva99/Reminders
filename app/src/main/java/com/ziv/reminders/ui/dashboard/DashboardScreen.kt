@@ -123,8 +123,12 @@ private fun TimerHabitRow(habit: HabitRowUiState, status: HabitStatus.TimerStatu
 
 @Composable
 private fun ScheduleCursorHabitRow(habit: HabitRowUiState, status: HabitStatus.ScheduleCursorStatus, onMarkRead: () -> Unit) {
+    // Once the schedule is exhausted there's nothing left to mark read — the row stops being
+    // tappable so a stray tap can't advance the cursor past the end or credit a phantom streak
+    // day (see ScheduleCursorRepository.markRead's matching finished-state no-op guard).
+    val rowModifier = Modifier.fillMaxWidth().let { if (!status.finished) it.clickable(onClick = onMarkRead) else it }
     Row(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onMarkRead),
+        modifier = rowModifier,
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {

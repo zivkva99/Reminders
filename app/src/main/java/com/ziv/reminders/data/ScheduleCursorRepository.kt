@@ -34,6 +34,10 @@ class ScheduleCursorRepository(
 
     suspend fun markRead(instance: HabitInstance, today: LocalDate) {
         val cursorIndex = progressDao.getByInstance(instance.id)?.cursorIndex ?: 0
+        // No-op once the schedule is exhausted (all entries read, or the bundled CSV failed to
+        // load and fell back to an empty list) — otherwise tapping a "Finished" row would still
+        // advance the cursor past the end and falsely credit a streak day for nothing read.
+        if (deriveScheduleEntryStatus(schedule, cursorIndex, today) is ScheduleEntryStatus.Finished) return
         progressDao.upsert(ScheduleCursorProgress(instance.id, cursorIndex + 1))
 
         val key = today.toString()

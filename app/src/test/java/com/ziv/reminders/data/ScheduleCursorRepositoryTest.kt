@@ -106,4 +106,20 @@ class ScheduleCursorRepositoryTest {
 
         assertEquals(1, repo.currentStreak(instance, sunday))
     }
+
+    @Test
+    fun markRead_whenFinished_isANoOp() = runTest {
+        val progressDao = FakeScheduleCursorProgressDao()
+        progressDao.rows[3L] = ScheduleCursorProgress(3L, cursorIndex = schedule.size)
+        val dailyDao = FakeScheduleCursorDailyProgressDao()
+        val repo = ScheduleCursorRepository(progressDao, dailyDao, schedule)
+        val today = LocalDate.of(2026, 7, 20)
+
+        repo.markRead(instance, today)
+
+        assertEquals(schedule.size, progressDao.rows[3L]?.cursorIndex)
+        assertEquals(null, dailyDao.rows[3L to today.toString()])
+        assertEquals(0, repo.currentStreak(instance, today))
+        assertFalse(repo.todayStatus(instance, today).completed)
+    }
 }
