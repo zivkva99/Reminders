@@ -13,7 +13,10 @@ import com.ziv.reminders.data.HabitInstance
 
 /** One channel per HabitInstance for its reminder notification (not per-kind or shared) — see
  * Global Constraints. The ongoing Timer foreground notification gets its own second, low-
- * importance, silent per-instance channel — see this plan's Global Constraints for why. */
+ * importance, silent per-instance channel. The cross-habit evaluator's escalated notification
+ * gets a THIRD per-instance channel, high-importance — Android ties notification importance to
+ * the channel (not a per-notification field) on this app's minSdk, so raising priority for one
+ * firing without permanently changing the normal reminder channel requires a separate channel. */
 object HabitNotifications {
     fun channelId(instance: HabitInstance): String = "habit_${instance.id}"
     fun notificationId(instance: HabitInstance): Int = instance.id.toInt()
@@ -86,6 +89,35 @@ object HabitNotifications {
             .setContentText("$minutes min left")
             .setOngoing(true)
             .setContentIntent(timerContentIntent(context, instance.id))
+            .build()
+    }
+
+    fun escalatedChannelId(habitInstanceId: Long): String = "habit_${habitInstanceId}_escalated"
+
+    fun createEscalatedChannel(context: Context, habitInstanceId: Long) {
+        val manager = context.getSystemService(NotificationManager::class.java)
+        manager.createNotificationChannel(
+            NotificationChannel(escalatedChannelId(habitInstanceId), "Escalated reminders", NotificationManager.IMPORTANCE_HIGH)
+        )
+    }
+
+    /** Posted under the SAME notificationId(instance) as the normal reminder — this replaces
+     * that notification rather than duplicating it, satisfying the "never race ahead of or
+     * duplicate a habit's own alarm" rule even though it uses a different (higher-importance)
+     * channel. */
+    fun buildEscalatedReminderNotification(context: Context, instance: HabitInstance): Notification {
+        val activityIntent = Intent(context, MainActivity::class.java)
+            .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        val contentIntent = PendingIntent.getActivity(
+            context, notificationId(instance), activityIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        return NotificationCompat.Builder(context, escalatedChannelId(instance.id))
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setContentTitle(instance.notificationTitle)
+            .setContentText("Don't lose your reading streak — and Exercise is still waiting too!")
+            .setAutoCancel(true)
+            .setContentIntent(contentIntent)
             .build()
     }
 }
