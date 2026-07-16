@@ -1,9 +1,13 @@
 package com.ziv.reminders
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.PowerManager
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -21,6 +25,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         requestNotificationPermissionIfNeeded()
+        requestBatteryOptimizationExemptionIfNeeded()
         val container = (application as RemindersApp).container
         setContent {
             RemindersTheme {
@@ -38,6 +43,19 @@ class MainActivity : ComponentActivity() {
             if (!granted) {
                 requestNotificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
             }
+        }
+    }
+
+    // No persisted "already asked" state, no denied-state banner — re-checks and
+    // re-prompts every launch until actually granted, same shape as the notification
+    // permission check above. Some OEMs (Samsung, Xiaomi) aggressively kill background
+    // alarms/WorkManager without this exemption.
+    private fun requestBatteryOptimizationExemptionIfNeeded() {
+        val powerManager = getSystemService(PowerManager::class.java)
+        if (!powerManager.isIgnoringBatteryOptimizations(packageName)) {
+            startActivity(
+                Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:$packageName"))
+            )
         }
     }
 }
