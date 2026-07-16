@@ -25,6 +25,12 @@ class CrossHabitEvaluator(
 
         val exercise = habitInstanceDao.getById(EXERCISE_HABIT_INSTANCE_ID) ?: return false
         val reading = habitInstanceDao.getById(READING_HABIT_INSTANCE_ID) ?: return false
+        // HabitScheduler never schedules Reading's reminder on a disabled day (Fri/Sat under the
+        // seeded Sun-Thu mask), so escalating here would post a brand-new standalone notification
+        // instead of updating an existing one — a direct violation of the "never posts a separate
+        // notification" design constraint. StreakCalculator also skips disabled days entirely, so
+        // readingStreak > 0 can still hold on a Friday/Saturday; this guard must come first.
+        if (!isEnabledDay(today, reading.enabledDaysMask)) return false
 
         val exerciseStatus = habitEngine.todayStatus(exercise, today) as? HabitStatus.CounterStatus ?: return false
         val readingStatus = habitEngine.todayStatus(reading, today) as? HabitStatus.TimerStatus ?: return false

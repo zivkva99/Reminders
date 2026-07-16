@@ -134,4 +134,20 @@ class CrossHabitEvaluatorTest {
 
         assertFalse(evaluator.evaluate(today))
     }
+
+    @Test
+    fun evaluate_readingNotEnabledToday_doesNotEscalate() = runTest {
+        // Friday: disabled for Reading's Sun-Thu mask. Thursday completed keeps the streak alive
+        // (StreakCalculator skips disabled days), so all three non-day-gated conditions still hold.
+        val friday = LocalDate.of(2026, 7, 17)
+        val timerDao = FakeTimerDailyProgressDaoForCrossHabit()
+        timerDao.rows[reading.id to "2026-07-16"] = TimerDailyProgress(reading.id, "2026-07-16", 900, 0, true, 1L, null)
+        val escalationDao = FakeEvaluatorEscalationDao()
+        val evaluator = newEvaluator(instanceDaoWithBoth(), timerDao = timerDao, escalationDao = escalationDao)
+
+        val result = evaluator.evaluate(friday)
+
+        assertFalse(result)
+        assertEquals(null, escalationDao.rows[reading.id to friday.toString()])
+    }
 }
