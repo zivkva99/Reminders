@@ -1,0 +1,284 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 5,
+    "identityHash": "728e4551713ee347598b7b765220fc3a",
+    "entities": [
+      {
+        "tableName": "habit_instance",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `kind` TEXT NOT NULL, `name` TEXT NOT NULL, `enabledDaysMask` INTEGER NOT NULL, `notificationTitle` TEXT NOT NULL, `notificationBody` TEXT NOT NULL, `counterGoal` INTEGER, `timerTargetSeconds` INTEGER, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "kind",
+            "columnName": "kind",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "enabledDaysMask",
+            "columnName": "enabledDaysMask",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "notificationTitle",
+            "columnName": "notificationTitle",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "notificationBody",
+            "columnName": "notificationBody",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "counterGoal",
+            "columnName": "counterGoal",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "timerTargetSeconds",
+            "columnName": "timerTargetSeconds",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "counter_daily_progress",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`habitInstanceId` INTEGER NOT NULL, `date` TEXT NOT NULL, `count` INTEGER NOT NULL, `completed` INTEGER NOT NULL, PRIMARY KEY(`habitInstanceId`, `date`))",
+        "fields": [
+          {
+            "fieldPath": "habitInstanceId",
+            "columnName": "habitInstanceId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "date",
+            "columnName": "date",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "count",
+            "columnName": "count",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "completed",
+            "columnName": "completed",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "habitInstanceId",
+            "date"
+          ]
+        }
+      },
+      {
+        "tableName": "timer_daily_progress",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`habitInstanceId` INTEGER NOT NULL, `date` TEXT NOT NULL, `targetSeconds` INTEGER NOT NULL, `remainingSeconds` INTEGER NOT NULL, `completed` INTEGER NOT NULL, `completedAt` INTEGER, `activeSessionStartedAt` INTEGER, PRIMARY KEY(`habitInstanceId`, `date`))",
+        "fields": [
+          {
+            "fieldPath": "habitInstanceId",
+            "columnName": "habitInstanceId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "date",
+            "columnName": "date",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "targetSeconds",
+            "columnName": "targetSeconds",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "remainingSeconds",
+            "columnName": "remainingSeconds",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "completed",
+            "columnName": "completed",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "completedAt",
+            "columnName": "completedAt",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "activeSessionStartedAt",
+            "columnName": "activeSessionStartedAt",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "habitInstanceId",
+            "date"
+          ]
+        }
+      },
+      {
+        "tableName": "schedule_cursor_progress",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`habitInstanceId` INTEGER NOT NULL, `cursorIndex` INTEGER NOT NULL, PRIMARY KEY(`habitInstanceId`))",
+        "fields": [
+          {
+            "fieldPath": "habitInstanceId",
+            "columnName": "habitInstanceId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "cursorIndex",
+            "columnName": "cursorIndex",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "habitInstanceId"
+          ]
+        }
+      },
+      {
+        "tableName": "schedule_cursor_daily_progress",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`habitInstanceId` INTEGER NOT NULL, `date` TEXT NOT NULL, `entriesMarkedRead` INTEGER NOT NULL, `completed` INTEGER NOT NULL, PRIMARY KEY(`habitInstanceId`, `date`))",
+        "fields": [
+          {
+            "fieldPath": "habitInstanceId",
+            "columnName": "habitInstanceId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "date",
+            "columnName": "date",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "entriesMarkedRead",
+            "columnName": "entriesMarkedRead",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "completed",
+            "columnName": "completed",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "habitInstanceId",
+            "date"
+          ]
+        }
+      },
+      {
+        "tableName": "evaluator_escalation",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`habitInstanceId` INTEGER NOT NULL, `date` TEXT NOT NULL, `escalated` INTEGER NOT NULL, PRIMARY KEY(`habitInstanceId`, `date`))",
+        "fields": [
+          {
+            "fieldPath": "habitInstanceId",
+            "columnName": "habitInstanceId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "date",
+            "columnName": "date",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "escalated",
+            "columnName": "escalated",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "habitInstanceId",
+            "date"
+          ]
+        }
+      },
+      {
+        "tableName": "exercise_sub_counter_progress",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`exerciseKey` TEXT NOT NULL, `date` TEXT NOT NULL, `count` INTEGER NOT NULL, PRIMARY KEY(`exerciseKey`, `date`))",
+        "fields": [
+          {
+            "fieldPath": "exerciseKey",
+            "columnName": "exerciseKey",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "date",
+            "columnName": "date",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "count",
+            "columnName": "count",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "exerciseKey",
+            "date"
+          ]
+        }
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '728e4551713ee347598b7b765220fc3a')"
+    ]
+  }
+}

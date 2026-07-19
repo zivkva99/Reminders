@@ -9,9 +9,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
     entities = [
         HabitInstance::class, CounterDailyProgress::class, TimerDailyProgress::class,
         ScheduleCursorProgress::class, ScheduleCursorDailyProgress::class,
-        EvaluatorEscalation::class,
+        EvaluatorEscalation::class, ExerciseSubCounterProgress::class,
     ],
-    version = 4,
+    version = 5,
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun habitInstanceDao(): HabitInstanceDao
@@ -20,6 +20,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun scheduleCursorProgressDao(): ScheduleCursorProgressDao
     abstract fun scheduleCursorDailyProgressDao(): ScheduleCursorDailyProgressDao
     abstract fun evaluatorEscalationDao(): EvaluatorEscalationDao
+    abstract fun exerciseSubCounterProgressDao(): ExerciseSubCounterProgressDao
 
     companion object {
         /** Adds Timer-with-duration kind support — see Plan 2. */
@@ -66,6 +67,20 @@ abstract class AppDatabase : RoomDatabase() {
                     "CREATE TABLE IF NOT EXISTS `evaluator_escalation` (" +
                         "`habitInstanceId` INTEGER NOT NULL, `date` TEXT NOT NULL, " +
                         "`escalated` INTEGER NOT NULL, PRIMARY KEY(`habitInstanceId`, `date`))"
+                )
+            }
+        }
+
+        /** Adds the Exercise sub-counter tracking table — one row per (exerciseKey,
+         * date), never one row per date with multiple columns (see this file's
+         * ExerciseSubCounterProgress doc comment for why). Never
+         * fallbackToDestructiveMigration() — see Global Constraints. */
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `exercise_sub_counter_progress` (" +
+                        "`exerciseKey` TEXT NOT NULL, `date` TEXT NOT NULL, " +
+                        "`count` INTEGER NOT NULL, PRIMARY KEY(`exerciseKey`, `date`))"
                 )
             }
         }
