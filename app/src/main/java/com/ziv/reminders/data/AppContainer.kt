@@ -6,7 +6,7 @@ import com.ziv.reminders.engine.HabitEngine
 import com.ziv.reminders.scheduling.HabitScheduler
 
 /** Manual DI — no framework needed at this app's size. One instance, owned by RemindersApp. */
-class AppContainer(context: Context) : DashboardDataSource {
+class AppContainer(context: Context) : DashboardDataSource, ExerciseDetailDataSource {
     private val appContext = context.applicationContext
 
     private val db: AppDatabase by lazy {
@@ -28,6 +28,7 @@ class AppContainer(context: Context) : DashboardDataSource {
     val exerciseSubCounterProgressDao get() = db.exerciseSubCounterProgressDao()
     override val counterHabitRepository: CounterHabitRepository by lazy { CounterHabitRepository(counterDailyProgressDao) }
     val timerHabitRepository: TimerHabitRepository by lazy { TimerHabitRepository(timerDailyProgressDao, SystemClock) }
+    override val subCounterRepository: SubCounterRepository by lazy { SubCounterRepository(exerciseSubCounterProgressDao) }
 
     /** Falls back to an empty schedule (never throws) if the bundled asset is ever missing or
      * malformed — mirrors ReadBook's own tanakhSchedule loader; a crash here must not take down
@@ -54,4 +55,13 @@ interface DashboardDataSource {
     val counterHabitRepository: CounterHabitRepository
     val scheduleCursorRepository: ScheduleCursorRepository
     val habitEngine: com.ziv.reminders.engine.HabitEngine
+}
+
+/** Parallel to DashboardDataSource, not an extension of it — keeps DashboardDataSource
+ * free of Exercise-only members. AppContainer implements both. */
+interface ExerciseDetailDataSource {
+    val habitInstanceDao: HabitInstanceDao
+    val counterHabitRepository: CounterHabitRepository
+    val habitEngine: com.ziv.reminders.engine.HabitEngine
+    val subCounterRepository: SubCounterRepository
 }

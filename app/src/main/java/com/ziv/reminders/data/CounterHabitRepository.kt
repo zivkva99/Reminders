@@ -40,4 +40,8 @@ class CounterHabitRepository(private val dao: CounterDailyProgressDao) {
         }
         return streak
     }
+
+    // Feeds HabitStats' month/best-month/record functions (ExerciseViewModel, Task 5),
+    // which need the raw completed-date rows, not just the derived streak count.
+    suspend fun completedDates(instance: HabitInstance): List<String> = dao.getCompletedDates(instance.id)
 }
