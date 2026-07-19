@@ -86,42 +86,38 @@
 
 ---
 
+## Completed
+
 ### Unused `SubCounterRepository.valueForDate` (singular)
 
-**What:** `SubCounterRepository.valueForDate(exerciseKey, date)` (singular, single-key lookup) is only referenced by its own unit tests — production code goes through `valuesForDate` (plural, batch-by-date) via `ExerciseViewModel.subCounterValuesForDate`, which already delivers the "no fabricated default for a past day" behavior the singular method was designed for.
+**What:** `SubCounterRepository.valueForDate(exerciseKey, date)` (singular, single-key lookup) was only referenced by its own unit tests — production code goes through `valuesForDate` (plural, batch-by-date) via `ExerciseViewModel.subCounterValuesForDate`, which already delivers the "no fabricated default for a past day" behavior the singular method was designed for.
 
-**Why:** Either it's intentional public API surface for a future caller, or it's dead code that should be removed along with its tests.
+**Why:** Dead code — removed along with its 2 tests; replaced with one test asserting `valuesForDate` on a missing past date returns an empty map rather than a fabricated default.
 
-**Context:** Surfaced during the final whole-branch review of the exercise-port plan (2026-07-19). Not a bug — the null-for-missing-past-date semantic is preserved either way — just an unresolved "keep or remove" call.
+**Context:** Surfaced during the final whole-branch review of the exercise-port plan (2026-07-19).
 
-**Effort:** S
-**Priority:** P4
-**Depends on:** None.
+**Completed:** commit e14cd66 (2026-07-19)
 
 ---
 
 ### Duplicated streak-calculation logic (CounterHabitRepository vs. HabitStats)
 
-**What:** `CounterHabitRepository.currentStreak` (Room-backed, used for the displayed streak count) and `HabitStats.currentStreak`/`isNewStreakRecord` (pure, used for record detection) independently implement the same streak-anchor algorithm over the same completed-date set.
+**What:** `CounterHabitRepository.currentStreak` and `HabitStats.currentStreak`/`isNewStreakRecord` independently implemented the same streak-anchor algorithm over the same completed-date set.
 
-**Why:** Both currently agree, but a future change to one anchor rule could silently desync from the other — e.g. the displayed streak count and the "— new record!" suffix disagreeing.
+**Why:** Fixed — `CounterHabitRepository.currentStreak` now delegates to `HabitStats.currentStreak(HabitStats.parseDates(...), today)` instead of reimplementing the anchor/loop logic, so there's exactly one streak-anchor implementation. Existing `CounterHabitRepositoryTest` cases (behavioral, not implementation-specific) passed unchanged.
 
-**Context:** Surfaced during the final whole-branch review of the exercise-port plan (2026-07-19). Recommended fix (not urgent): have `CounterHabitRepository.currentStreak` delegate to `HabitStats.currentStreak` instead of reimplementing it.
+**Context:** Surfaced during the final whole-branch review of the exercise-port plan (2026-07-19).
 
-**Effort:** S
-**Priority:** P3
-**Depends on:** None.
+**Completed:** commit e14cd66 (2026-07-19)
 
 ---
 
 ### Heatmap "miss" color is a fixed light gray in dark mode
 
-**What:** `HeatmapMiss = Color(0xFFE0E0E0)` in `ExerciseColors.kt` renders as a near-white tile in dark mode, since it's a fixed value rather than derived from the current theme.
+**What:** `HeatmapMiss = Color(0xFFE0E0E0)` in `ExerciseColors.kt` rendered as a near-white tile in dark mode.
 
-**Why:** Possible legibility/contrast issue in dark mode — worth checking on-device.
+**Why:** Fixed — removed the `HeatmapMiss` constant; the heatmap's no-data cell now uses `MaterialTheme.colorScheme.surfaceVariant` at the call site, which already adapts to light/dark automatically (unlike `HeatmapHit`/`HeatmapPending`, "miss" carries no special status meaning, so it doesn't need a fixed semantic color). Verified on-device in both light and dark mode — dark mode now shows a proper dark gray tile instead of near-white.
 
-**Context:** Surfaced during the final whole-branch review of the exercise-port plan (2026-07-19). Falls within the already-approved "semantic-only constants mirroring Shape, layered on dynamic theme" decision, so not a defect against the plan — just worth a look if dark-mode use is common.
+**Context:** Surfaced during the final whole-branch review of the exercise-port plan (2026-07-19).
 
-**Effort:** S
-**Priority:** P4
-**Depends on:** On-device dark-mode check (see Task 7 of the exercise-port plan).
+**Completed:** commit e14cd66 (2026-07-19)
