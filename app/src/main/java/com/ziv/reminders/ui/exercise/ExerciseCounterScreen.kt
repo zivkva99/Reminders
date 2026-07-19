@@ -63,6 +63,7 @@ internal val exerciseLabels = mapOf(
 fun ExerciseCounterScreen(viewModel: ExerciseViewModel, onOpenStats: () -> Unit, onBack: () -> Unit) {
     LaunchedEffect(Unit) { viewModel.refresh() }
     val uiState by viewModel.uiState.collectAsState()
+    if (!uiState.isLoaded) return
     BackHandler(onBack = onBack)
 
     val goalReached = uiState.completed
