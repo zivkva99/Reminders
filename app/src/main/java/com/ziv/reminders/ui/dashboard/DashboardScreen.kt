@@ -24,11 +24,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
+import com.ziv.reminders.data.EXERCISE_HABIT_INSTANCE_ID
 import com.ziv.reminders.data.HabitStatus
 import kotlinx.coroutines.delay
 
 @Composable
-fun DashboardScreen(viewModel: DashboardViewModel) {
+fun DashboardScreen(viewModel: DashboardViewModel, onOpenExercise: () -> Unit = {}) {
     val uiState by viewModel.uiState.collectAsState()
 
     // Re-reads current state on every resume (first composition, backgrounding, notification
@@ -48,6 +49,7 @@ fun DashboardScreen(viewModel: DashboardViewModel) {
                     viewModel.onToggleTimer(habit.instanceId, context, displayedRemainingSeconds)
                 },
                 onMarkRead = { viewModel.onMarkRead(habit.instanceId) },
+                onOpenExercise = onOpenExercise,
             )
             Spacer(Modifier.height(8.dp))
         }
@@ -60,18 +62,30 @@ private fun HabitRow(
     onIncrement: () -> Unit,
     onToggleTimer: (Int) -> Unit,
     onMarkRead: () -> Unit,
+    onOpenExercise: () -> Unit,
 ) {
     when (habit.status) {
-        is HabitStatus.CounterStatus -> CounterHabitRow(habit, habit.status, onIncrement)
+        is HabitStatus.CounterStatus -> CounterHabitRow(habit, habit.status, onIncrement, onOpenExercise)
         is HabitStatus.TimerStatus -> TimerHabitRow(habit, habit.status, onToggleTimer)
         is HabitStatus.ScheduleCursorStatus -> ScheduleCursorHabitRow(habit, habit.status, onMarkRead)
     }
 }
 
+// Dispatch is by instance ID, not by HabitKind — a hypothetical future second
+// COUNTER-kind habit must not be silently redirected into the Exercise flow just because
+// it shares HabitKind.COUNTER (see DashboardDispatchTest).
+fun shouldNavigateToExerciseDetail(instanceId: Long): Boolean = instanceId == EXERCISE_HABIT_INSTANCE_ID
+
 @Composable
-private fun CounterHabitRow(habit: HabitRowUiState, status: HabitStatus.CounterStatus, onIncrement: () -> Unit) {
+private fun CounterHabitRow(
+    habit: HabitRowUiState,
+    status: HabitStatus.CounterStatus,
+    onIncrement: () -> Unit,
+    onOpenExercise: () -> Unit,
+) {
+    val onClick = if (shouldNavigateToExerciseDetail(habit.instanceId)) onOpenExercise else onIncrement
     Row(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onIncrement),
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
