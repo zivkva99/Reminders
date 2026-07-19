@@ -4,7 +4,6 @@ import kotlinx.coroutines.test.runTest
 import java.time.LocalDate
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNull
 
 private class FakeExerciseSubCounterProgressDao : ExerciseSubCounterProgressDao {
     val rows = mutableMapOf<Pair<String, String>, ExerciseSubCounterProgress>()
@@ -33,19 +32,9 @@ class SubCounterRepositoryTest {
     }
 
     @Test
-    fun valueForDate_pastDateNoRow_returnsNull_neverDefaultsToFive() = runTest {
+    fun valuesForDate_pastDateNoRows_returnsEmptyMap_neverDefaultsToFive() = runTest {
         val repo = SubCounterRepository(FakeExerciseSubCounterProgressDao())
-        assertNull(repo.valueForDate(EXERCISE_KEY_PUSHUP, today.minusDays(30)))
-    }
-
-    @Test
-    fun valueForDate_pastDateWithRow_returnsStoredValue() = runTest {
-        val dao = FakeExerciseSubCounterProgressDao()
-        val pastDate = today.minusDays(5)
-        dao.rows[EXERCISE_KEY_SITUP to pastDate.toString()] = ExerciseSubCounterProgress(EXERCISE_KEY_SITUP, pastDate.toString(), 20)
-        val repo = SubCounterRepository(dao)
-
-        assertEquals(20, repo.valueForDate(EXERCISE_KEY_SITUP, pastDate))
+        assertEquals(emptyMap(), repo.valuesForDate(today.minusDays(30)))
     }
 
     @Test

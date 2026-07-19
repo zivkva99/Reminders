@@ -24,22 +24,12 @@ class CounterHabitRepository(private val dao: CounterDailyProgressDao) {
         )
     }
 
-    // Mirrors Shape's TrainingStats.currentStreak anchor logic: if today isn't done yet, the
-    // day isn't over — the streak counts through yesterday and isn't broken until midnight
-    // passes without today being hit.
-    suspend fun currentStreak(instance: HabitInstance, today: LocalDate): Int {
-        val completedDates = dao.getCompletedDates(instance.id)
-            .mapNotNull { runCatching { LocalDate.parse(it) }.getOrNull() }
-            .toSet()
-        val anchor = if (today in completedDates) today else today.minusDays(1)
-        var streak = 0
-        var cursor = anchor
-        while (cursor in completedDates) {
-            streak++
-            cursor = cursor.minusDays(1)
-        }
-        return streak
-    }
+    // Delegates to HabitStats.currentStreak (same anchor logic: if today isn't done yet,
+    // the day isn't over — the streak counts through yesterday and isn't broken until
+    // midnight passes without today being hit) so this app has exactly one streak-anchor
+    // implementation, not two independently maintained copies that could silently diverge.
+    suspend fun currentStreak(instance: HabitInstance, today: LocalDate): Int =
+        HabitStats.currentStreak(HabitStats.parseDates(dao.getCompletedDates(instance.id)), today)
 
     // Feeds HabitStats' month/best-month/record functions (ExerciseViewModel, Task 5),
     // which need the raw completed-date rows, not just the derived streak count.

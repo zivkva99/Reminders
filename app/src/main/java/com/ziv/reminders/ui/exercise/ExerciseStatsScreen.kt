@@ -121,7 +121,7 @@ private fun HeatmapGrid(dates: Set<LocalDate>, today: LocalDate, onDayClick: (Lo
             val color = when {
                 day == today && day !in dates -> HeatmapPending
                 day in dates -> HeatmapHit
-                else -> HeatmapMiss
+                else -> MaterialTheme.colorScheme.surfaceVariant
             }
             val description = "${day.format(DateTimeFormatter.ISO_LOCAL_DATE)}: " +
                 if (day == today && day !in dates) "not yet done"
