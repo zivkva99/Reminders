@@ -279,4 +279,96 @@ class TimerHabitRepositoryTest {
 
         assertEquals(listOf("2026-07-17"), repo.completedDates(instance))
     }
+
+    @Test
+    fun resetToday_noPriorRow_createsFreshDefaultRow() = runTest {
+        val dao = FakeTimerDailyProgressDao()
+        val repo = TimerHabitRepository(dao, FakeClock())
+
+        repo.resetToday(instance, today)
+
+        val row = dao.getByDate(1L, today.toString())
+        assertEquals(900, row?.remainingSeconds)
+        assertFalse(row?.completed == true)
+        assertNull(row?.activeSessionStartedAt)
+    }
+
+    @Test
+    fun resetToday_idleCompletedDay_resetsBackToFullTargetAndNotCompleted() = runTest {
+        val clock = FakeClock(millis = 1_000_000L)
+        val dao = FakeTimerDailyProgressDao()
+        val repo = TimerHabitRepository(dao, clock)
+        repo.start(instance, today)
+        clock.millis += 900_000L // full target elapses
+        repo.stop(instance, today) // marks completed
+
+        repo.resetToday(instance, today)
+
+        val status = repo.todayStatus(instance, today)
+        assertEquals(900, status.remainingSeconds)
+        assertFalse(status.completed)
+    }
+
+    @Test
+    fun resetToday_activeSession_stopsItFirstThenResetsToFullTarget_notThePartialRemaining() = runTest {
+        val clock = FakeClock(millis = 1_000_000L)
+        val dao = FakeTimerDailyProgressDao()
+        val repo = TimerHabitRepository(dao, clock)
+        repo.start(instance, today)
+        clock.millis += 60_000L // 60s elapse, session still active
+
+        repo.resetToday(instance, today)
+
+        val status = repo.todayStatus(instance, today)
+        assertEquals(900, status.remainingSeconds) // full target, not 840 (stop()'s own partial result)
+        assertFalse(status.isRunning)
+        assertFalse(status.completed)
+    }
+
+    @Test
+    fun resetToday_deletesAllOfTodaysLoggedSessions_includingThePriorOneAndTheActiveOneItCloses() = runTest {
+        val clock = FakeClock(millis = 1_000_000L)
+        val dao = FakeTimerDailyProgressDao()
+        val sessionLogDao = FakeReadingSessionLogDao()
+        val repo = TimerHabitRepository(dao, clock, sessionLogDao)
+        repo.start(instance, today)
+        clock.millis += 60_000L
+        repo.stop(instance, today) // first completed segment, logged
+        repo.start(instance, today) // second session, still active when reset happens
+        clock.millis += 30_000L
+
+        repo.resetToday(instance, today)
+
+        assertEquals(emptyList(), repo.sessionsForDate(instance, today))
+    }
+
+    @Test
+    fun resetToday_sessionLogFromADifferentDay_isNotDeleted() = runTest {
+        val clock = FakeClock(millis = 1_000_000L)
+        val dao = FakeTimerDailyProgressDao()
+        val sessionLogDao = FakeReadingSessionLogDao()
+        val repo = TimerHabitRepository(dao, clock, sessionLogDao)
+        val yesterday = today.minusDays(1)
+        repo.start(instance, yesterday)
+        clock.millis += 60_000L
+        repo.stop(instance, yesterday) // logged under yesterday's date
+
+        repo.resetToday(instance, today)
+
+        assertEquals(1, repo.sessionsForDate(instance, yesterday).size)
+    }
+
+    @Test
+    fun resetToday_runsItsWritesInsideTheProvidedTransactionRunner() = runTest {
+        val clock = FakeClock(millis = 1_000_000L)
+        val dao = FakeTimerDailyProgressDao()
+        var transactionRan = false
+        val repo = TimerHabitRepository(dao, clock, runInTransaction = { block -> transactionRan = true; block() })
+        repo.start(instance, today)
+
+        repo.resetToday(instance, today)
+
+        assertTrue(transactionRan)
+        assertEquals(900, dao.getByDate(1L, today.toString())?.remainingSeconds)
+    }
 }

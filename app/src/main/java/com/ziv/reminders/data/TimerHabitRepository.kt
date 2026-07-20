@@ -15,11 +15,17 @@ import java.time.LocalDate
  * logging a required 3rd parameter would force mechanical edits to every one of them for a
  * feature they don't test. When present, every finishSession() call logs one row; when absent
  * (existing tests), session logging is silently skipped and nothing else changes.
+ *
+ * runInTransaction follows the same nullable/no-op-default escape hatch, for the same reason:
+ * it wraps resetToday()'s upsert-then-delete pair atomically in production (AppContainer passes
+ * AppDatabase.withTransaction), but defaults to a plain passthrough so every fake-DAO-based test
+ * — including this class's own test file — needs no real Room database.
  */
 class TimerHabitRepository(
     private val dao: TimerDailyProgressDao,
     private val clock: Clock,
     private val sessionLogDao: ReadingSessionLogDao? = null,
+    private val runInTransaction: suspend (suspend () -> Unit) -> Unit = { block -> block() },
 ) {
 
     suspend fun todayStatus(instance: HabitInstance, today: LocalDate): HabitStatus.TimerStatus {
@@ -85,6 +91,37 @@ class TimerHabitRepository(
 
     suspend fun deleteSession(session: ReadingSessionLog) {
         sessionLogDao?.delete(session)
+    }
+
+    /** Full reset: discards any active session by calling stop() itself, awaited, as its first
+     * internal step — never routed through TimerService/an Intent — so any active session is
+     * correctly closed out (and logged) before this function's own writes run. Then overwrites
+     * today's row back to defaults and deletes every session log for today, including whichever
+     * one stop() may have just inserted. The upsert-then-delete pair runs inside
+     * [runInTransaction] so those two writes land atomically together. A caller that also needs
+     * to stop TimerService's foreground notification must send that Intent only after this
+     * suspend function returns, never before or concurrently — see this class's doc comment and
+     * the "Reading Reset" design doc's corrected sequencing for why.
+     *
+     * Known pre-existing limitation (noted during /autoplan Eng review, not introduced by this
+     * function): stop()'s own read-then-write in finishSession() has no lock, so a truly
+     * concurrent caller (e.g. TimerService's autoCompleteJob) reading the row between this
+     * function's internal stop() call and its own read could theoretically race — narrower than
+     * the race this function was written to close (see above), and, like that one, an accepted
+     * edge case for a single-user app rather than something worth adding locking for. */
+    suspend fun resetToday(instance: HabitInstance, today: LocalDate) {
+        stop(instance, today)
+        val target = requireNotNull(instance.timerTargetSeconds) { "Timer habit ${instance.id} has no timerTargetSeconds" }
+        val key = today.toString()
+        runInTransaction {
+            dao.upsert(
+                TimerDailyProgress(
+                    habitInstanceId = instance.id, date = key, targetSeconds = target, remainingSeconds = target,
+                    completed = false, completedAt = null, activeSessionStartedAt = null,
+                )
+            )
+            sessionLogDao?.deleteForDate(instance.id, key)
+        }
     }
 
     private suspend fun finishSession(row: TimerDailyProgress, allowCompletion: Boolean = true): TimerDailyProgress {

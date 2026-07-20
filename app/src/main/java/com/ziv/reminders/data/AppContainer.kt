@@ -2,6 +2,7 @@ package com.ziv.reminders.data
 
 import android.content.Context
 import androidx.room.Room
+import androidx.room.withTransaction
 import com.ziv.reminders.engine.HabitEngine
 import com.ziv.reminders.scheduling.HabitScheduler
 
@@ -28,7 +29,12 @@ class AppContainer(context: Context) : DashboardDataSource, ExerciseDetailDataSo
     val exerciseSubCounterProgressDao get() = db.exerciseSubCounterProgressDao()
     val readingSessionLogDao get() = db.readingSessionLogDao()
     override val counterHabitRepository: CounterHabitRepository by lazy { CounterHabitRepository(counterDailyProgressDao) }
-    override val timerHabitRepository: TimerHabitRepository by lazy { TimerHabitRepository(timerDailyProgressDao, SystemClock, readingSessionLogDao) }
+    override val timerHabitRepository: TimerHabitRepository by lazy {
+        TimerHabitRepository(
+            timerDailyProgressDao, SystemClock, readingSessionLogDao,
+            runInTransaction = { block -> db.withTransaction { block() } },
+        )
+    }
     override val subCounterRepository: SubCounterRepository by lazy { SubCounterRepository(exerciseSubCounterProgressDao) }
 
     /** Falls back to an empty schedule (never throws) if the bundled asset is ever missing or
@@ -54,6 +60,7 @@ class AppContainer(context: Context) : DashboardDataSource, ExerciseDetailDataSo
 interface DashboardDataSource {
     val habitInstanceDao: HabitInstanceDao
     val counterHabitRepository: CounterHabitRepository
+    val timerHabitRepository: TimerHabitRepository
     val scheduleCursorRepository: ScheduleCursorRepository
     val habitEngine: com.ziv.reminders.engine.HabitEngine
 }
