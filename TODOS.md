@@ -58,6 +58,20 @@
 
 ---
 
+### Reading reset confirm dialog undercounts sessions during an active session
+
+**What:** The reset confirm dialog's preview text ("This deletes N sessions...") is sourced from `DashboardViewModel.readingSessionCountToday`, which counts only already-logged `ReadingSessionLog` rows. A currently-running session isn't logged until `stop()` runs, so if the user long-presses to reset while a session is actively ticking, the dialog undercounts by one (or, with zero prior completed sessions, shows the "clears today's progress" fallback with no session mention at all) — even though `resetToday()` will close out and delete that in-flight session too.
+
+**Why:** Purely cosmetic — the reset itself is correct, only the preview text is slightly inaccurate, and only in the specific case where the destruction is largest (an active session). Cheapest fix if ever addressed: add 1 to the count when a session is currently running, or reword to "up to N sessions."
+
+**Context:** Surfaced during the final whole-branch review of the Reading-reset/Tanakh-undo plan (2026-07-20). Reviewer's own assessment: "not worth blocking on... honestly it's fine as-is for this app."
+
+**Effort:** S
+**Priority:** P4
+**Depends on:** None.
+
+---
+
 ## Completed
 
 ### Unused `SubCounterRepository.valueForDate` (singular)
