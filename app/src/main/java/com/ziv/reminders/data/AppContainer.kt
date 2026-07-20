@@ -6,7 +6,7 @@ import com.ziv.reminders.engine.HabitEngine
 import com.ziv.reminders.scheduling.HabitScheduler
 
 /** Manual DI — no framework needed at this app's size. One instance, owned by RemindersApp. */
-class AppContainer(context: Context) : DashboardDataSource, ExerciseDetailDataSource {
+class AppContainer(context: Context) : DashboardDataSource, ExerciseDetailDataSource, ActivityDataSource {
     private val appContext = context.applicationContext
 
     private val db: AppDatabase by lazy {
@@ -28,7 +28,7 @@ class AppContainer(context: Context) : DashboardDataSource, ExerciseDetailDataSo
     val exerciseSubCounterProgressDao get() = db.exerciseSubCounterProgressDao()
     val readingSessionLogDao get() = db.readingSessionLogDao()
     override val counterHabitRepository: CounterHabitRepository by lazy { CounterHabitRepository(counterDailyProgressDao) }
-    val timerHabitRepository: TimerHabitRepository by lazy { TimerHabitRepository(timerDailyProgressDao, SystemClock, readingSessionLogDao) }
+    override val timerHabitRepository: TimerHabitRepository by lazy { TimerHabitRepository(timerDailyProgressDao, SystemClock, readingSessionLogDao) }
     override val subCounterRepository: SubCounterRepository by lazy { SubCounterRepository(exerciseSubCounterProgressDao) }
 
     /** Falls back to an empty schedule (never throws) if the bundled asset is ever missing or
@@ -65,4 +65,17 @@ interface ExerciseDetailDataSource {
     val counterHabitRepository: CounterHabitRepository
     val habitEngine: com.ziv.reminders.engine.HabitEngine
     val subCounterRepository: SubCounterRepository
+}
+
+/** Parallel to the other two, not an extension of either — the Activity screen needs
+ * timerHabitRepository/scheduleCursorRepository (for Reading/Tanakh's completedDates,
+ * session log, and undo) that DashboardDataSource doesn't expose, but deliberately excludes
+ * subCounterRepository: the Activity screen's Exercise section reuses ExerciseViewModel
+ * directly instead of duplicating that path (see Task 6). */
+interface ActivityDataSource {
+    val habitInstanceDao: HabitInstanceDao
+    val counterHabitRepository: CounterHabitRepository
+    val timerHabitRepository: TimerHabitRepository
+    val scheduleCursorRepository: ScheduleCursorRepository
+    val habitEngine: com.ziv.reminders.engine.HabitEngine
 }
