@@ -122,4 +122,51 @@ class ScheduleCursorRepositoryTest {
         assertEquals(0, repo.currentStreak(instance, today))
         assertFalse(repo.todayStatus(instance, today).completed)
     }
+
+    @Test
+    fun undoMarkRead_decrementsCursorByOne() = runTest {
+        val progressDao = FakeScheduleCursorProgressDao()
+        val dailyDao = FakeScheduleCursorDailyProgressDao()
+        val repo = ScheduleCursorRepository(progressDao, dailyDao, schedule)
+        val today = LocalDate.of(2026, 7, 12)
+        repo.markRead(instance, today)
+
+        repo.undoMarkRead(instance, today)
+
+        assertEquals(0, progressDao.rows[3L]?.cursorIndex)
+    }
+
+    @Test
+    fun undoMarkRead_clearsTodaysCompletedFlagWhenCountReachesZero() = runTest {
+        val progressDao = FakeScheduleCursorProgressDao()
+        val dailyDao = FakeScheduleCursorDailyProgressDao()
+        val repo = ScheduleCursorRepository(progressDao, dailyDao, schedule)
+        val today = LocalDate.of(2026, 7, 12)
+        repo.markRead(instance, today)
+
+        repo.undoMarkRead(instance, today)
+
+        assertEquals(false, dailyDao.rows[3L to today.toString()]?.completed)
+    }
+
+    @Test
+    fun undoMarkRead_cursorAtZero_isANoOp_neverGoesNegative() = runTest {
+        val progressDao = FakeScheduleCursorProgressDao()
+        val dailyDao = FakeScheduleCursorDailyProgressDao()
+        val repo = ScheduleCursorRepository(progressDao, dailyDao, schedule)
+
+        repo.undoMarkRead(instance, LocalDate.of(2026, 7, 12))
+
+        assertEquals(null, progressDao.rows[3L])
+    }
+
+    @Test
+    fun completedDates_returnsOnlyDatesWithCompletedTrue() = runTest {
+        val dailyDao = FakeScheduleCursorDailyProgressDao()
+        dailyDao.rows[3L to "2026-07-12"] = ScheduleCursorDailyProgress(3L, "2026-07-12", 1, true)
+        dailyDao.rows[3L to "2026-07-13"] = ScheduleCursorDailyProgress(3L, "2026-07-13", 0, false)
+        val repo = ScheduleCursorRepository(FakeScheduleCursorProgressDao(), dailyDao, schedule)
+
+        assertEquals(listOf("2026-07-12"), repo.completedDates(instance))
+    }
 }
