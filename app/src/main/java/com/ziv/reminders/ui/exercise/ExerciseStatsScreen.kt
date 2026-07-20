@@ -16,12 +16,14 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.ziv.reminders.data.HabitStats
 import com.ziv.reminders.ui.activity.HeatmapGrid
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
@@ -88,12 +90,22 @@ private fun EmptyState() {
 @Composable
 private fun SubCounterDetailDialog(viewModel: ExerciseViewModel, date: LocalDate, onDismiss: () -> Unit) {
     var values by remember(date) { mutableStateOf<Map<String, Int?>?>(null) }
-    // Keyed on (date, uiState.subCounters) not just (date) — the new +/- edit buttons below call
-    // adjustSubCounterForDate, which triggers refresh() and updates uiState, but without this
-    // extra key the dialog's own `values` (fetched once on open) would go stale after an edit
-    // within the same dialog session instead of reflecting the just-applied change.
-    val uiState by viewModel.uiState.collectAsState()
-    LaunchedEffect(date, uiState.subCounters) { values = viewModel.subCounterValuesForDate(date) }
+    val scope = rememberCoroutineScope()
+    LaunchedEffect(date) { values = viewModel.subCounterValuesForDate(date) }
+
+    // Found on-device during Task 8 verification: the previous approach keyed the fetch on
+    // (date, uiState.subCounters), assuming an edit would change that map — but uiState.subCounters
+    // only ever reflects TODAY's values (see ExerciseViewModel.refresh()), so editing any OTHER
+    // date left that key unchanged, silently freezing this dialog on its pre-edit snapshot even
+    // though the write succeeded (confirmed via close/reopen — the DB was correct, only this
+    // dialog's display was stale). Fix: sequence the write and the re-fetch explicitly in the
+    // same coroutine, in the dialog's own scope, instead of relying on an indirect uiState signal.
+    fun adjust(exerciseKey: String, delta: Int) {
+        scope.launch {
+            viewModel.adjustSubCounterForDate(exerciseKey, date, delta)
+            values = viewModel.subCounterValuesForDate(date)
+        }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -107,8 +119,8 @@ private fun SubCounterDetailDialog(viewModel: ExerciseViewModel, date: LocalDate
                     exerciseLabels.forEach { (key, label) ->
                         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                             Text("$label: ${current[key] ?: "—"}", modifier = Modifier.weight(1f))
-                            TextButton(onClick = { viewModel.adjustSubCounterForDate(key, date, -1) }) { Text("−") }
-                            TextButton(onClick = { viewModel.adjustSubCounterForDate(key, date, +1) }) { Text("+") }
+                            TextButton(onClick = { adjust(key, -1) }) { Text("−") }
+                            TextButton(onClick = { adjust(key, +1) }) { Text("+") }
                         }
                     }
                 }

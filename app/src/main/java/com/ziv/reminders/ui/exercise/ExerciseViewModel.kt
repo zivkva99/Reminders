@@ -83,11 +83,18 @@ class ExerciseViewModel(private val dataSource: ExerciseDetailDataSource) : View
     // an explicit date — used by SubCounterDetailDialog to edit a past day's value. No new
     // repository method needed: SubCounterRepository.adjust already takes an arbitrary
     // LocalDate despite its parameter being named "today".
-    fun adjustSubCounterForDate(exerciseKey: String, date: LocalDate, delta: Int) {
-        viewModelScope.launch {
-            dataSource.subCounterRepository.adjust(exerciseKey, date, delta)
-            refresh()
-        }
+    //
+    // Suspend, not fire-and-forget on viewModelScope (found on-device during Task 8
+    // verification): the dialog needs to await this write completing before re-fetching
+    // subCounterValuesForDate(date) for display. uiState.subCounters only ever reflects TODAY's
+    // values (see refresh()), so it never changes for a past-date edit and can't be used as a
+    // recomposition trigger — the dialog would silently keep showing the pre-edit snapshot even
+    // though the write succeeded. refresh() is still called for the app-wide uiState fields it
+    // owns (streak/totalCount/etc., unaffected by sub-counter edits but kept in sync anyway);
+    // its own internal viewModelScope.launch does not block this function's caller.
+    suspend fun adjustSubCounterForDate(exerciseKey: String, date: LocalDate, delta: Int) {
+        dataSource.subCounterRepository.adjust(exerciseKey, date, delta)
+        refresh()
     }
 
     suspend fun subCounterValuesForDate(date: LocalDate): Map<String, Int?> {
