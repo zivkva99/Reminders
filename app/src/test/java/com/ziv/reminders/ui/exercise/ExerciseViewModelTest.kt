@@ -201,4 +201,22 @@ class ExerciseViewModelTest {
         assertEquals(10, values[EXERCISE_KEY_PUSHUP])
         assertNull(values[EXERCISE_KEY_SITUP])
     }
+
+    @Test
+    fun adjustSubCounterForDate_pastDate_adjustsThatDatesValue_notToday() = runTest {
+        val viewModel = newViewModel()
+        val pastDate = LocalDate.now().minusDays(3)
+
+        viewModel.adjustSubCounterForDate(EXERCISE_KEY_PUSHUP, pastDate, +2)
+
+        val values = viewModel.subCounterValuesForDate(pastDate)
+        assertEquals(EXERCISE_SUB_COUNTER_DEFAULT + 2, values[EXERCISE_KEY_PUSHUP])
+    }
+
+    @Test
+    fun refresh_populatesTotalCount() = runTest {
+        val viewModel = newViewModel()
+        viewModel.refresh()
+        assertEquals(viewModel.uiState.value.completedDates.size, viewModel.uiState.value.totalCount)
+    }
 }

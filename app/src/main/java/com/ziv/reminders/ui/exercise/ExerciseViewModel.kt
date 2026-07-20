@@ -24,6 +24,7 @@ data class ExerciseUiState(
     val isNewStreakRecord: Boolean = false,
     val monthCount: Int = 0,
     val isNewMonthRecord: Boolean = false,
+    val totalCount: Int = 0,
     val subCounters: Map<String, Int> = ALL_EXERCISE_KEYS.associateWith { EXERCISE_SUB_COUNTER_DEFAULT },
     val completedDates: Set<LocalDate> = emptySet(),
     val isLoaded: Boolean = false,
@@ -55,6 +56,7 @@ class ExerciseViewModel(private val dataSource: ExerciseDetailDataSource) : View
                 isNewStreakRecord = HabitStats.isNewStreakRecord(dates, today),
                 monthCount = HabitStats.monthCount(dates, today),
                 isNewMonthRecord = HabitStats.isNewMonthRecord(dates, today),
+                totalCount = HabitStats.totalCount(dates),
                 subCounters = subCounters,
                 completedDates = dates,
                 isLoaded = true,
@@ -73,6 +75,17 @@ class ExerciseViewModel(private val dataSource: ExerciseDetailDataSource) : View
     fun adjustSubCounter(exerciseKey: String, delta: Int) {
         viewModelScope.launch {
             dataSource.subCounterRepository.adjust(exerciseKey, LocalDate.now(), delta)
+            refresh()
+        }
+    }
+
+    // Unlike adjustSubCounter (always today, called from the live counter screen), this takes
+    // an explicit date — used by SubCounterDetailDialog to edit a past day's value. No new
+    // repository method needed: SubCounterRepository.adjust already takes an arbitrary
+    // LocalDate despite its parameter being named "today".
+    fun adjustSubCounterForDate(exerciseKey: String, date: LocalDate, delta: Int) {
+        viewModelScope.launch {
+            dataSource.subCounterRepository.adjust(exerciseKey, date, delta)
             refresh()
         }
     }
