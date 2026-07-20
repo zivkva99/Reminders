@@ -30,6 +30,7 @@ class RemindersApp : Application() {
                     container.habitScheduler.scheduleRemindersForToday(today, instance)
                 }
                 container.habitScheduler.scheduleRollover(from = today)
+                container.habitScheduler.scheduleWeeklySummary(from = today)
                 EscalationWorker.ensureScheduled(this@RemindersApp)
             } catch (e: Exception) {
                 // Never let a startup self-heal failure crash the app — same resilience as

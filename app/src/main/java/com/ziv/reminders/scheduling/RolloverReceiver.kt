@@ -37,6 +37,7 @@ class RolloverReceiver : BroadcastReceiver() {
                     scheduler.scheduleRemindersForToday(today, instance)
                 }
                 scheduler.scheduleRollover(from = today)
+                scheduler.scheduleWeeklySummary(from = today)
             } finally {
                 pendingResult.finish()
             }

@@ -38,6 +38,7 @@ class BootReceiver : BroadcastReceiver() {
                         scheduler.scheduleRemindersForToday(date, instance)
                     }
                     scheduler.scheduleRollover(from = date)
+                    scheduler.scheduleWeeklySummary(from = date)
                 } catch (e: Exception) {
                     // Never let a boot-time failure crash the receiver — next app-open self-heals.
                 } finally {

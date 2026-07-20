@@ -10,13 +10,23 @@ import androidx.core.app.NotificationCompat
 import com.ziv.reminders.MainActivity
 import com.ziv.reminders.R
 import com.ziv.reminders.data.HabitInstance
+import com.ziv.reminders.data.HabitKind
+import com.ziv.reminders.data.WeeklyHabitCount
+import com.ziv.reminders.scheduling.HabitReminderReceiver
+import com.ziv.reminders.scheduling.HabitScheduler
 
 /** One channel per HabitInstance for its reminder notification (not per-kind or shared) — see
  * Global Constraints. The ongoing Timer foreground notification gets its own second, low-
  * importance, silent per-instance channel. The cross-habit evaluator's escalated notification
- * gets a THIRD per-instance channel, high-importance — Android ties notification importance to
- * the channel (not a per-notification field) on this app's minSdk, so raising priority for one
- * firing without permanently changing the normal reminder channel requires a separate channel. */
+ * gets a THIRD per-instance channel, high-importance. The weekly cross-habit summary gets one
+ * more, app-wide (not per-instance, since it covers all three habits at once).
+ *
+ * This file references HabitReminderReceiver/HabitScheduler (the scheduling package) to build
+ * the Start/Snooze action PendingIntents — a deliberate mutual reference, mirroring
+ * HabitReminderReceiver's own existing import of this file the other direction; this app's
+ * "no framework needed at this size" philosophy accepts this over introducing a third
+ * mediating class for two small, already-coupled packages.
+ */
 object HabitNotifications {
     fun channelId(instance: HabitInstance): String = "habit_${instance.id}"
     fun notificationId(instance: HabitInstance): Int = instance.id.toInt()
@@ -37,13 +47,41 @@ object HabitNotifications {
             context, instance.id.toInt(), activityIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        return NotificationCompat.Builder(context, channelId(instance))
+        val builder = NotificationCompat.Builder(context, channelId(instance))
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentTitle(instance.notificationTitle)
             .setContentText(instance.notificationBody)
             .setAutoCancel(true)
             .setContentIntent(contentIntent)
-            .build()
+
+        // Actionable Start/Snooze buttons are Reading (Timer-kind)-specific — ReadBook's own
+        // nudge notification never had these for its Bible-reading habit either.
+        if (instance.kind == HabitKind.TIMER.name) {
+            builder
+                .addAction(0, "Start", startReadingPendingIntent(context, instance.id))
+                .addAction(0, "Snooze 15m", snoozeReadingPendingIntent(context, instance.id))
+        }
+        return builder.build()
+    }
+
+    private fun startReadingPendingIntent(context: Context, habitInstanceId: Long): PendingIntent {
+        val intent = Intent(context, HabitReminderReceiver::class.java)
+            .setAction(HabitScheduler.ACTION_START_READING)
+            .putExtra(HabitScheduler.EXTRA_HABIT_INSTANCE_ID, habitInstanceId)
+        return PendingIntent.getBroadcast(
+            context, (habitInstanceId * 10 + 1).toInt(), intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+    }
+
+    private fun snoozeReadingPendingIntent(context: Context, habitInstanceId: Long): PendingIntent {
+        val intent = Intent(context, HabitReminderReceiver::class.java)
+            .setAction(HabitScheduler.ACTION_SNOOZE_READING)
+            .putExtra(HabitScheduler.EXTRA_HABIT_INSTANCE_ID, habitInstanceId)
+        return PendingIntent.getBroadcast(
+            context, (habitInstanceId * 10 + 2).toInt(), intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
     }
 
     fun timerChannelId(habitInstanceId: Long): String = "habit_${habitInstanceId}_timer"
@@ -116,6 +154,41 @@ object HabitNotifications {
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentTitle(instance.notificationTitle)
             .setContentText("Don't lose your reading streak — and Exercise is still waiting too!")
+            .setAutoCancel(true)
+            .setContentIntent(contentIntent)
+            .build()
+    }
+
+    const val WEEKLY_SUMMARY_CHANNEL_ID = "weekly_summary"
+    // Far outside any per-instance id (1,2,3) or timer id (1000,2000,3000) range.
+    const val WEEKLY_SUMMARY_NOTIFICATION_ID = -100
+
+    fun createWeeklySummaryChannel(context: Context) {
+        val manager = context.getSystemService(NotificationManager::class.java)
+        manager.createNotificationChannel(
+            NotificationChannel(WEEKLY_SUMMARY_CHANNEL_ID, "Weekly summary", NotificationManager.IMPORTANCE_DEFAULT)
+        )
+    }
+
+    fun buildWeeklySummaryNotification(context: Context, summary: WeeklyHabitCount): Notification {
+        // Plain tap-to-open — no action buttons, unlike the Reading reminder above (see this
+        // feature's design doc, "the weekly summary is a plain notification, not an
+        // action-dispatch case").
+        val activityIntent = Intent(context, MainActivity::class.java)
+            .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        val contentIntent = PendingIntent.getActivity(
+            context, WEEKLY_SUMMARY_NOTIFICATION_ID, activityIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        // "/7" per-habit is a literal 7-calendar-day window count and stays accurate regardless
+        // of enabledDaysMask. The combo-streak clause deliberately drops any "/N" denominator —
+        // see ActivityScreen's matching correction for why 7 is not an achievable ceiling here.
+        val text = "Exercise ${summary.exerciseDays}/7 · Reading ${summary.readingDays}/7 · Tanakh ${summary.tanakhDays}/7" +
+            if (summary.comboStreak > 0) " · All three ${summary.comboStreak} day${if (summary.comboStreak == 1) "" else "s"}!" else ""
+        return NotificationCompat.Builder(context, WEEKLY_SUMMARY_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setContentTitle("Your week in Reminders")
+            .setContentText(text)
             .setAutoCancel(true)
             .setContentIntent(contentIntent)
             .build()

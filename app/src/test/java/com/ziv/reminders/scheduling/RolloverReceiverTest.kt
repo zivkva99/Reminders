@@ -53,8 +53,14 @@ class RolloverReceiverTest {
         shadowOf(Looper.getMainLooper()).idle()
         testScheduler.advanceUntilIdle()
 
-        // 5 reminder alarms for the one instance + 1 rollover self-reschedule = 6.
-        assertEquals(6, shadowOf(alarmManager).getScheduledAlarms().size)
+        // 5 reminder alarms for the one instance + 1 rollover self-reschedule + 1 weekly-summary
+        // self-heal (added Task 7) = 7.
+        val scheduled = shadowOf(alarmManager).getScheduledAlarms()
+        assertEquals(7, scheduled.size)
+        val weeklySummaryAlarms = scheduled.filter {
+            shadowOf(it.operation).savedIntent.action == HabitScheduler.ACTION_WEEKLY_SUMMARY
+        }
+        assertEquals(1, weeklySummaryAlarms.size)
 
         db.close()
     }

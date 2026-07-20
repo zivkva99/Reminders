@@ -16,20 +16,6 @@
 
 ---
 
-### Weekly aggregate summary notification
-
-**What:** Shape has a Saturday weekly-summary notification (days this week/month, streak, record callouts). Reminders' notification system today is per-kind only (`ReminderReceiver`-equivalent, `WeeklySummaryReceiver` in Shape) — no aggregate-across-habits summary exists in Reminders.
-
-**Why:** Would give a single weekly check-in across Exercise/Reading/Tanakh instead of only per-habit reminders.
-
-**Context:** Surfaced during the `/autoplan` review (2026-07-19). Deferred — touches Reminders' notification scheduling architecture broadly (would need its own alarm + receiver + cross-habit aggregation query), well outside this plan's blast radius (Exercise-only).
-
-**Effort:** L
-**Priority:** P2
-**Depends on:** None — could be built independently at any time.
-
----
-
 ### App-wide: no error handling around Room reads in ViewModels
 
 **What:** `DashboardViewModel.refresh()` (and the new `ExerciseViewModel`'s equivalent load) has no try/catch around Room queries — a query throwing (e.g., rare disk I/O failure) crashes the app.
@@ -119,3 +105,15 @@
 **Context:** Surfaced during the `/autoplan` review of the Shape-into-Reminders exercise port (2026-07-19); resolved as a CEO cherry-pick during the `/autoplan` review of the ReadBook Activity Log plan (2026-07-19/20). That cherry-pick directly contradicted the plan's own inherited "Exercise stays view-only, unchanged" Global Constraint, which was corrected during the same review to allow it.
 
 **Completed:** commit 4ad9fad (2026-07-20)
+
+---
+
+### Weekly aggregate summary notification
+
+**What:** Shape has a Saturday weekly-summary notification (days this week/month, streak, record callouts). Reminders' notification system today is per-kind only (`ReminderReceiver`-equivalent, `WeeklySummaryReceiver` in Shape) — no aggregate-across-habits summary exists in Reminders.
+
+**Why:** Resolved: `HabitScheduler.scheduleWeeklySummary` schedules a Sunday 09:00 alarm (self-healed daily alongside the existing rollover alarm from `RemindersApp.onCreate`/`BootReceiver`/`RolloverReceiver`), and `HabitReminderReceiver.handleWeeklySummary` aggregates Exercise/Reading/Tanakh completed-dates over the trailing 7-day window (`WeeklySummary.compute`) into a single cross-habit notification, with an all-zero-week suppression guard so a fresh install never posts a useless "0/7 · 0/7 · 0/7" nag.
+
+**Context:** Surfaced during the `/autoplan` review (2026-07-19). Originally deferred as out of the exercise-port plan's blast radius; resolved as Task 7 of the ReadBook Activity Log plan (2026-07-19/20), which already needed the notification/scheduling framework touched for Reading's Start/Snooze actions.
+
+**Completed:** commit `<pending — filled in immediately after this task's commit>` (2026-07-20)

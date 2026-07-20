@@ -56,7 +56,12 @@ class BootReceiverTest {
         shadowOf(android.os.Looper.getMainLooper()).idle()
         testScheduler.advanceUntilIdle()
 
-        assertEquals(6, shadowOf(alarmManager).getScheduledAlarms().size)
+        val scheduled = shadowOf(alarmManager).getScheduledAlarms()
+        assertEquals(7, scheduled.size)
+        val weeklySummaryAlarms = scheduled.filter {
+            shadowOf(it.operation).savedIntent.action == HabitScheduler.ACTION_WEEKLY_SUMMARY
+        }
+        assertEquals(1, weeklySummaryAlarms.size)
 
         db.close()
     }
