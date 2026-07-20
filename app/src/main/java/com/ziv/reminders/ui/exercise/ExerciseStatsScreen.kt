@@ -3,15 +3,10 @@ package com.ziv.reminders.ui.exercise
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -30,45 +25,48 @@ import com.ziv.reminders.ui.activity.HeatmapGrid
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
+/**
+ * Embeddable Exercise section for the unified Activity screen — this used to be the standalone
+ * "exerciseStats" NavHost destination, just reached via Activity instead of its own route. The
+ * back button/title row that used to live here now belongs to ActivityScreen's shared top bar.
+ *
+ * Corrected during /autoplan review: SubCounterDetailDialog now supports +/- editing a past
+ * day's value (not view-only), and this section now shows a "Total" line alongside its existing
+ * streak/month/record callouts — matching Reading/Tanakh's stat vocabulary instead of showing a
+ * differently-labeled number in the same visual slot.
+ */
 @Composable
-fun ExerciseStatsScreen(viewModel: ExerciseViewModel, onBack: () -> Unit) {
+fun ExerciseActivitySection(viewModel: ExerciseViewModel) {
     LaunchedEffect(Unit) { viewModel.refresh() }
     val uiState by viewModel.uiState.collectAsState()
     val today = remember { LocalDate.now() }
     var selectedDate by remember { mutableStateOf<LocalDate?>(null) }
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        Row(modifier = Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-            }
-            Text(text = "Your Progress", style = MaterialTheme.typography.titleMedium)
-        }
+    if (!uiState.isLoaded) return
 
-        // isLoaded distinguishes "hasn't loaded yet" from "genuinely no history" — without
-        // it this screen could flash an empty-history message on cold navigation.
-        if (!uiState.isLoaded) return@Column
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
+        Text(
+            text = "Streak: ${uiState.streak} day${if (uiState.streak == 1) "" else "s"}" +
+                HabitStats.recordSuffix(uiState.isNewStreakRecord, "record"),
+            style = MaterialTheme.typography.bodyLarge,
+        )
+        Text(
+            text = "This month: ${uiState.monthCount} day${if (uiState.monthCount == 1) "" else "s"}" +
+                HabitStats.recordSuffix(uiState.isNewMonthRecord, "best month"),
+            style = MaterialTheme.typography.bodyLarge,
+        )
+        Text(
+            text = "Total: ${uiState.totalCount} day${if (uiState.totalCount == 1) "" else "s"}",
+            style = MaterialTheme.typography.bodyLarge,
+        )
+    }
 
-        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
-            Text(
-                text = "Streak: ${uiState.streak} day${if (uiState.streak == 1) "" else "s"}" +
-                    HabitStats.recordSuffix(uiState.isNewStreakRecord, "record"),
-                style = MaterialTheme.typography.bodyLarge,
-            )
-            Text(
-                text = "This month: ${uiState.monthCount} day${if (uiState.monthCount == 1) "" else "s"}" +
-                    HabitStats.recordSuffix(uiState.isNewMonthRecord, "best month"),
-                style = MaterialTheme.typography.bodyLarge,
-            )
-        }
+    Spacer(Modifier.height(16.dp))
 
-        Spacer(Modifier.height(16.dp))
-
-        if (uiState.completedDates.isEmpty()) {
-            EmptyState()
-        } else {
-            HeatmapGrid(dates = uiState.completedDates, today = today, onDayClick = { day -> selectedDate = day })
-        }
+    if (uiState.completedDates.isEmpty()) {
+        EmptyState()
+    } else {
+        HeatmapGrid(dates = uiState.completedDates, today = today, onDayClick = { day -> selectedDate = day })
     }
 
     selectedDate?.let { date ->
@@ -90,7 +88,12 @@ private fun EmptyState() {
 @Composable
 private fun SubCounterDetailDialog(viewModel: ExerciseViewModel, date: LocalDate, onDismiss: () -> Unit) {
     var values by remember(date) { mutableStateOf<Map<String, Int?>?>(null) }
-    LaunchedEffect(date) { values = viewModel.subCounterValuesForDate(date) }
+    // Keyed on (date, uiState.subCounters) not just (date) — the new +/- edit buttons below call
+    // adjustSubCounterForDate, which triggers refresh() and updates uiState, but without this
+    // extra key the dialog's own `values` (fetched once on open) would go stale after an edit
+    // within the same dialog session instead of reflecting the just-applied change.
+    val uiState by viewModel.uiState.collectAsState()
+    LaunchedEffect(date, uiState.subCounters) { values = viewModel.subCounterValuesForDate(date) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -102,7 +105,11 @@ private fun SubCounterDetailDialog(viewModel: ExerciseViewModel, date: LocalDate
                 current.values.all { it == null } -> Text("No data for this day")
                 else -> Column {
                     exerciseLabels.forEach { (key, label) ->
-                        Text("$label: ${current[key] ?: "—"}")
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                            Text("$label: ${current[key] ?: "—"}", modifier = Modifier.weight(1f))
+                            TextButton(onClick = { viewModel.adjustSubCounterForDate(key, date, -1) }) { Text("−") }
+                            TextButton(onClick = { viewModel.adjustSubCounterForDate(key, date, +1) }) { Text("+") }
+                        }
                     }
                 }
             }

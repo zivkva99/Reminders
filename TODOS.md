@@ -2,20 +2,6 @@
 
 ## Review
 
-### Retroactive edit of a past day's rep counts
-
-**What:** Let the user tap a heatmap day (in the new Exercise stats screen) and correct that day's logged rep counts, not just view them.
-
-**Why:** Mistakes happen (wrong count logged, forgot to log same-day) and today there's no way to fix history for any habit kind.
-
-**Context:** Surfaced during the `/autoplan` review of the Shape-into-Reminders exercise port (2026-07-19). Explicitly deferred because it touches every habit kind's "no edit history" precedent, not just Exercise — a bigger, cross-cutting feature than this plan's scope.
-
-**Effort:** M
-**Priority:** P3
-**Depends on:** The exercise-port plan (per-day sub-counter table) shipping first.
-
----
-
 ### Generalize the per-day sub-metric table for other habit kinds
 
 **What:** The new `exercise_sub_counter_progress` table (4 rep counters per day) is Exercise-specific. Consider a reusable "sub-metric" table shape other habit kinds could use later (e.g., Reading session notes, Tanakh chapter difficulty rating).
@@ -121,3 +107,15 @@
 **Context:** Surfaced during the final whole-branch review of the exercise-port plan (2026-07-19).
 
 **Completed:** commit e14cd66 (2026-07-19)
+
+---
+
+### Retroactive edit of a past day's rep counts
+
+**What:** Let the user tap a heatmap day (in the Exercise section of the unified Activity screen) and correct that day's logged rep counts, not just view them.
+
+**Why:** Mistakes happen (wrong count logged, forgot to log same-day) and there was no way to fix history for any habit kind. Resolved for Exercise: `ExerciseViewModel.adjustSubCounterForDate` plus +/- edit controls in `SubCounterDetailDialog` let a past day's sub-counter values be corrected. Scoped to Exercise only (the sole habit kind with a per-day sub-metric table) — other habit kinds still have no edit-history mechanism, unchanged by this work.
+
+**Context:** Surfaced during the `/autoplan` review of the Shape-into-Reminders exercise port (2026-07-19); resolved as a CEO cherry-pick during the `/autoplan` review of the ReadBook Activity Log plan (2026-07-19/20). That cherry-pick directly contradicted the plan's own inherited "Exercise stays view-only, unchanged" Global Constraint, which was corrected during the same review to allow it.
+
+**Completed:** commit `<pending — filled in immediately after Step 6's commit>` (2026-07-20)

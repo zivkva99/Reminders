@@ -9,8 +9,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.List
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -28,30 +35,42 @@ import com.ziv.reminders.data.EXERCISE_HABIT_INSTANCE_ID
 import com.ziv.reminders.data.HabitStatus
 import kotlinx.coroutines.delay
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DashboardScreen(viewModel: DashboardViewModel, onOpenExercise: () -> Unit = {}) {
+fun DashboardScreen(viewModel: DashboardViewModel, onOpenExercise: () -> Unit = {}, onOpenActivity: () -> Unit = {}) {
     val uiState by viewModel.uiState.collectAsState()
 
     // Re-reads current state on every resume (first composition, backgrounding, notification
     // tap) so the dashboard never shows stale data — see Plan 1's final-review Issue 2/4.
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.refresh() }
 
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        Text("Today", style = MaterialTheme.typography.titleLarge)
-        Spacer(Modifier.height(16.dp))
-        if (!uiState.isLoaded) return@Column
-        uiState.habits.forEach { habit ->
-            val context = LocalContext.current
-            HabitRow(
-                habit = habit,
-                onIncrement = { viewModel.onIncrement(habit.instanceId) },
-                onToggleTimer = { displayedRemainingSeconds ->
-                    viewModel.onToggleTimer(habit.instanceId, context, displayedRemainingSeconds)
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Today") },
+                actions = {
+                    IconButton(onClick = onOpenActivity) {
+                        Icon(imageVector = Icons.Default.List, contentDescription = "Activity")
+                    }
                 },
-                onMarkRead = { viewModel.onMarkRead(habit.instanceId) },
-                onOpenExercise = onOpenExercise,
             )
-            Spacer(Modifier.height(8.dp))
+        }
+    ) { innerPadding ->
+        Column(modifier = Modifier.fillMaxSize().padding(innerPadding).padding(16.dp)) {
+            if (!uiState.isLoaded) return@Column
+            uiState.habits.forEach { habit ->
+                val context = LocalContext.current
+                HabitRow(
+                    habit = habit,
+                    onIncrement = { viewModel.onIncrement(habit.instanceId) },
+                    onToggleTimer = { displayedRemainingSeconds ->
+                        viewModel.onToggleTimer(habit.instanceId, context, displayedRemainingSeconds)
+                    },
+                    onMarkRead = { viewModel.onMarkRead(habit.instanceId) },
+                    onOpenExercise = onOpenExercise,
+                )
+                Spacer(Modifier.height(8.dp))
+            }
         }
     }
 }

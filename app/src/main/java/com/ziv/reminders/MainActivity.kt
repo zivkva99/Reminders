@@ -17,10 +17,11 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.ziv.reminders.ui.activity.ActivityScreen
+import com.ziv.reminders.ui.activity.ActivityViewModel
 import com.ziv.reminders.ui.dashboard.DashboardScreen
 import com.ziv.reminders.ui.dashboard.DashboardViewModel
 import com.ziv.reminders.ui.exercise.ExerciseCounterScreen
-import com.ziv.reminders.ui.exercise.ExerciseStatsScreen
 import com.ziv.reminders.ui.exercise.ExerciseViewModel
 import com.ziv.reminders.ui.theme.RemindersTheme
 
@@ -39,30 +40,31 @@ class MainActivity : ComponentActivity() {
                 val navController = rememberNavController()
                 val dashboardViewModel: DashboardViewModel = viewModel(factory = DashboardViewModel.factory(container))
                 val exerciseViewModel: ExerciseViewModel = viewModel(factory = ExerciseViewModel.factory(container))
+                val activityViewModel: ActivityViewModel = viewModel(factory = ActivityViewModel.factory(container))
 
                 NavHost(navController = navController, startDestination = "dashboard") {
                     composable("dashboard") {
                         // Fires every time this destination re-enters composition —
-                        // including after popping back from the Exercise flow, not just
-                        // on cold start — so the Exercise row's count never shows stale
-                        // data after logging a workout. See ExerciseViewModel.kt's note
-                        // on why refresh() lives at the call site, not in init{}.
+                        // including after popping back from the Exercise/Activity flows, not
+                        // just on cold start — so the dashboard's rows never show stale data.
                         LaunchedEffect(Unit) { dashboardViewModel.refresh() }
                         DashboardScreen(
                             viewModel = dashboardViewModel,
                             onOpenExercise = { navController.navigate("exerciseCounter") },
+                            onOpenActivity = { navController.navigate("activity") },
                         )
                     }
                     composable("exerciseCounter") {
                         ExerciseCounterScreen(
                             viewModel = exerciseViewModel,
-                            onOpenStats = { navController.navigate("exerciseStats") },
+                            onOpenStats = { navController.navigate("activity") },
                             onBack = { navController.popBackStack() },
                         )
                     }
-                    composable("exerciseStats") {
-                        ExerciseStatsScreen(
-                            viewModel = exerciseViewModel,
+                    composable("activity") {
+                        ActivityScreen(
+                            activityViewModel = activityViewModel,
+                            exerciseViewModel = exerciseViewModel,
                             onBack = { navController.popBackStack() },
                         )
                     }
