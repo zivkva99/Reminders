@@ -1,6 +1,8 @@
 package com.ziv.reminders.ui.dashboard
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -11,19 +13,24 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.List
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,11 +41,13 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import com.ziv.reminders.data.EXERCISE_HABIT_INSTANCE_ID
 import com.ziv.reminders.data.HabitStatus
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(viewModel: DashboardViewModel, onOpenExercise: () -> Unit = {}, onOpenActivity: () -> Unit = {}) {
     val uiState by viewModel.uiState.collectAsState()
+    val coroutineScope = rememberCoroutineScope()
 
     // Re-reads current state on every resume (first composition, backgrounding, notification
     // tap) so the dashboard never shows stale data — see Plan 1's final-review Issue 2/4.
@@ -66,6 +75,10 @@ fun DashboardScreen(viewModel: DashboardViewModel, onOpenExercise: () -> Unit = 
                     onToggleTimer = { displayedRemainingSeconds ->
                         viewModel.onToggleTimer(habit.instanceId, context, displayedRemainingSeconds)
                     },
+                    onResetReadingToday = {
+                        coroutineScope.launch { viewModel.onResetReadingToday(habit.instanceId, context) }
+                    },
+                    fetchReadingSessionCountToday = { viewModel.readingSessionCountToday(habit.instanceId) },
                     onMarkRead = { viewModel.onMarkRead(habit.instanceId) },
                     onOpenExercise = onOpenExercise,
                 )
@@ -80,12 +93,14 @@ private fun HabitRow(
     habit: HabitRowUiState,
     onIncrement: () -> Unit,
     onToggleTimer: (Int) -> Unit,
+    onResetReadingToday: () -> Unit,
+    fetchReadingSessionCountToday: suspend () -> Int,
     onMarkRead: () -> Unit,
     onOpenExercise: () -> Unit,
 ) {
     when (habit.status) {
         is HabitStatus.CounterStatus -> CounterHabitRow(habit, habit.status, onIncrement, onOpenExercise)
-        is HabitStatus.TimerStatus -> TimerHabitRow(habit, habit.status, onToggleTimer)
+        is HabitStatus.TimerStatus -> TimerHabitRow(habit, habit.status, onToggleTimer, onResetReadingToday, fetchReadingSessionCountToday)
         is HabitStatus.ScheduleCursorStatus -> ScheduleCursorHabitRow(habit, habit.status, onMarkRead)
     }
 }
@@ -119,8 +134,15 @@ private fun CounterHabitRow(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun TimerHabitRow(habit: HabitRowUiState, status: HabitStatus.TimerStatus, onToggleTimer: (Int) -> Unit) {
+private fun TimerHabitRow(
+    habit: HabitRowUiState,
+    status: HabitStatus.TimerStatus,
+    onToggleTimer: (Int) -> Unit,
+    onResetToday: () -> Unit,
+    fetchSessionCountToday: suspend () -> Int,
+) {
     // Live 1Hz countdown while running — the ViewModel/DB only update on Start/Stop/Completion,
     // not every second; the visual tick lives here and resets whenever the underlying status
     // (a new baseline remainingSeconds, or isRunning flipping) actually changes. Mirrors
@@ -132,12 +154,26 @@ private fun TimerHabitRow(habit: HabitRowUiState, status: HabitStatus.TimerStatu
             displaySeconds -= 1
         }
     }
+    var showResetConfirm by remember { mutableStateOf(false) }
+    var sessionCountToday by remember { mutableStateOf<Int?>(null) }
+    val rowScope = rememberCoroutineScope()
 
     Row(
         // Pass the currently-displayed (ticked-down) value, not status.remainingSeconds — the
         // ViewModel's optimistic flip uses this to avoid visually resetting to the stale
-        // pre-session baseline the instant Stop is tapped.
-        modifier = Modifier.fillMaxWidth().clickable(onClick = { onToggleTimer(displaySeconds) }),
+        // pre-session baseline the instant Stop is tapped. Long-press triggers the destructive
+        // reset confirm dialog instead of the row's normal tap-to-toggle behavior — the session
+        // count is fetched first (added during /autoplan review: a destructive, irreversible
+        // action shouldn't be confirmed blind) so the dialog can show what's about to be lost.
+        modifier = Modifier.fillMaxWidth().combinedClickable(
+            onClick = { onToggleTimer(displaySeconds) },
+            onLongClick = {
+                rowScope.launch {
+                    sessionCountToday = fetchSessionCountToday()
+                    showResetConfirm = true
+                }
+            },
+        ),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
@@ -150,6 +186,32 @@ private fun TimerHabitRow(habit: HabitRowUiState, status: HabitStatus.TimerStatu
         Text(
             text = if (status.completed) "✓" else "%d:%02d".format(minutes, seconds),
             style = MaterialTheme.typography.titleMedium,
+        )
+    }
+
+    if (showResetConfirm) {
+        val count = sessionCountToday ?: 0
+        AlertDialog(
+            onDismissRequest = { showResetConfirm = false },
+            title = { Text("Reset today?") },
+            text = {
+                Text(
+                    if (count > 0) {
+                        "This deletes $count session${if (count == 1) "" else "s"} logged today and clears today's progress. This can't be undone."
+                    } else {
+                        "This clears today's progress. This can't be undone."
+                    }
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = { showResetConfirm = false; onResetToday() },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                ) { Text("Reset") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showResetConfirm = false }) { Text("Cancel") }
+            },
         )
     }
 }

@@ -78,6 +78,33 @@ class DashboardViewModel(private val dataSource: DashboardDataSource) : ViewMode
         )
     }
 
+    /** Suspend — the caller (DashboardScreen) sends TimerService.ACTION_STOP only after this
+     * returns, never concurrently, so the service's own async stop-path can't race this
+     * function's writes. resetToday() itself awaits TimerHabitRepository.stop() as its first
+     * internal step, so any active session is already closed out (and logged) before this
+     * suspend call returns — the Intent sent here only tears down the foreground notification
+     * and cancels the service's ticking job, it does no DB work of its own that could clobber
+     * the reset. See the "Reading Reset" design doc's corrected sequencing for why the two must
+     * never fire concurrently. */
+    suspend fun onResetReadingToday(instanceId: Long, context: Context) {
+        val instance = dataSource.habitInstanceDao.getById(instanceId) ?: return
+        dataSource.timerHabitRepository.resetToday(instance, LocalDate.now())
+        context.startService(
+            Intent(context, TimerService::class.java)
+                .setAction(TimerService.ACTION_STOP)
+                .putExtra(TimerService.EXTRA_HABIT_INSTANCE_ID, instanceId)
+        )
+        refresh()
+    }
+
+    // Feeds the reset confirm dialog's preview text (added during /autoplan review — a
+    // destructive, irreversible action shouldn't be confirmed blind) so the user sees how many
+    // sessions they're about to lose before confirming.
+    suspend fun readingSessionCountToday(instanceId: Long): Int {
+        val instance = dataSource.habitInstanceDao.getById(instanceId) ?: return 0
+        return dataSource.timerHabitRepository.sessionsForDate(instance, LocalDate.now()).size
+    }
+
     companion object {
         fun factory(dataSource: DashboardDataSource): ViewModelProvider.Factory =
             object : ViewModelProvider.Factory {

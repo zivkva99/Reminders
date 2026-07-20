@@ -13,6 +13,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 @RunWith(RobolectricTestRunner::class)
@@ -186,6 +187,96 @@ class DashboardViewModelTest {
 
         val status = viewModel.uiState.value.habits[0].status as HabitStatus.ScheduleCursorStatus
         assertTrue(status.completed)
+
+        db.close()
+    }
+
+    @Test
+    fun onResetReadingToday_idleCompletedDay_resetsProgressBackToFullTarget() = runTest {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java)
+            .setQueryCoroutineContext(StandardTestDispatcher(testScheduler))
+            // resetToday() runs its writes inside db.withTransaction (TestAppContainer's real
+            // transactional wiring, Task 2) — Room's transaction executor is derived from the
+            // StandardTestDispatcher above, so it always drains on whatever thread calls
+            // advanceUntilIdle(), which Robolectric treats as the main thread. This is a JVM
+            // test artifact, not a real UI thread being blocked, so allowMainThreadQueries() is
+            // the standard escape hatch — see the other two new tests below for the same reason.
+            .allowMainThreadQueries()
+            .build()
+        db.habitInstanceDao().insertIfAbsent(
+            HabitInstance(2L, "TIMER", "Reading", 0b1111111, "t", "b", null, timerTargetSeconds = 900)
+        )
+        val viewModel = DashboardViewModel(TestAppContainer(db))
+        viewModel.refresh()
+        testScheduler.advanceUntilIdle()
+
+        viewModel.onResetReadingToday(2L, context)
+        testScheduler.advanceUntilIdle()
+
+        val status = viewModel.uiState.value.habits[0].status as HabitStatus.TimerStatus
+        assertEquals(900, status.remainingSeconds)
+        assertEquals(false, status.completed)
+
+        db.close()
+    }
+
+    @Test
+    fun onResetReadingToday_activeSession_stopsItFirstThenResetsToFullTarget() = runTest {
+        // Starts the session directly via the repository, not via onToggleTimer — Robolectric's
+        // startService() only records the Intent, it never actually invokes
+        // TimerService.onStartCommand, so onToggleTimer alone would never create a real active
+        // session row here. This is the only way to exercise resetToday's active-session path
+        // at this (ViewModel/integration) layer; the repository layer's own equivalent test
+        // (TimerHabitRepositoryTest.resetToday_activeSession_...) already covers it via fakes.
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java)
+            .setQueryCoroutineContext(StandardTestDispatcher(testScheduler))
+            // See onResetReadingToday_idleCompletedDay_resetsProgressBackToFullTarget above for why.
+            .allowMainThreadQueries()
+            .build()
+        db.habitInstanceDao().insertIfAbsent(
+            HabitInstance(2L, "TIMER", "Reading", 0b1111111, "t", "b", null, timerTargetSeconds = 900)
+        )
+        val container = TestAppContainer(db)
+        val instance = db.habitInstanceDao().getById(2L)!!
+        container.timerHabitRepository.start(instance, java.time.LocalDate.now())
+        val viewModel = DashboardViewModel(container)
+        viewModel.refresh()
+        testScheduler.advanceUntilIdle()
+
+        viewModel.onResetReadingToday(2L, context)
+        testScheduler.advanceUntilIdle()
+
+        val status = viewModel.uiState.value.habits[0].status as HabitStatus.TimerStatus
+        assertEquals(900, status.remainingSeconds)
+        assertEquals(false, status.completed)
+        assertEquals(false, status.isRunning)
+
+        db.close()
+    }
+
+    @Test
+    fun onResetReadingToday_sendsStopActionToTimerServiceAfterResetting() = runTest {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java)
+            .setQueryCoroutineContext(StandardTestDispatcher(testScheduler))
+            // See onResetReadingToday_idleCompletedDay_resetsProgressBackToFullTarget above for why.
+            .allowMainThreadQueries()
+            .build()
+        db.habitInstanceDao().insertIfAbsent(
+            HabitInstance(2L, "TIMER", "Reading", 0b1111111, "t", "b", null, timerTargetSeconds = 900)
+        )
+        val viewModel = DashboardViewModel(TestAppContainer(db))
+        viewModel.refresh()
+        testScheduler.advanceUntilIdle()
+
+        viewModel.onResetReadingToday(2L, context)
+        testScheduler.advanceUntilIdle()
+
+        val startedService = org.robolectric.Shadows.shadowOf(context as android.app.Application).nextStartedService
+        assertEquals(com.ziv.reminders.service.TimerService.ACTION_STOP, startedService?.action)
+        assertEquals(2L, startedService?.getLongExtra(com.ziv.reminders.service.TimerService.EXTRA_HABIT_INSTANCE_ID, -1L))
 
         db.close()
     }
