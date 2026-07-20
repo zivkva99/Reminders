@@ -35,6 +35,7 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun ActivityScreen(activityViewModel: ActivityViewModel, exerciseViewModel: ExerciseViewModel, onBack: () -> Unit) {
     LaunchedEffect(Unit) { activityViewModel.refresh() }
+    LaunchedEffect(Unit) { exerciseViewModel.refresh() }
     val uiState by activityViewModel.uiState.collectAsState()
     // Corrected during /autoplan design review: ExerciseActivitySection independently triggers
     // and gates on exerciseViewModel's own isLoaded (via its own LaunchedEffect(Unit)), so
