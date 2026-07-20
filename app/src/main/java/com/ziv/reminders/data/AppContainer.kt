@@ -14,7 +14,7 @@ class AppContainer(context: Context) : DashboardDataSource, ExerciseDetailDataSo
             // Never fallbackToDestructiveMigration() — see Global Constraints.
             .addMigrations(
                 AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3,
-                AppDatabase.MIGRATION_3_4, AppDatabase.MIGRATION_4_5,
+                AppDatabase.MIGRATION_3_4, AppDatabase.MIGRATION_4_5, AppDatabase.MIGRATION_5_6,
             )
             .build()
     }
@@ -26,8 +26,9 @@ class AppContainer(context: Context) : DashboardDataSource, ExerciseDetailDataSo
     val scheduleCursorDailyProgressDao get() = db.scheduleCursorDailyProgressDao()
     val evaluatorEscalationDao get() = db.evaluatorEscalationDao()
     val exerciseSubCounterProgressDao get() = db.exerciseSubCounterProgressDao()
+    val readingSessionLogDao get() = db.readingSessionLogDao()
     override val counterHabitRepository: CounterHabitRepository by lazy { CounterHabitRepository(counterDailyProgressDao) }
-    val timerHabitRepository: TimerHabitRepository by lazy { TimerHabitRepository(timerDailyProgressDao, SystemClock) }
+    val timerHabitRepository: TimerHabitRepository by lazy { TimerHabitRepository(timerDailyProgressDao, SystemClock, readingSessionLogDao) }
     override val subCounterRepository: SubCounterRepository by lazy { SubCounterRepository(exerciseSubCounterProgressDao) }
 
     /** Falls back to an empty schedule (never throws) if the bundled asset is ever missing or

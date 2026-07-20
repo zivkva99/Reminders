@@ -9,9 +9,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
     entities = [
         HabitInstance::class, CounterDailyProgress::class, TimerDailyProgress::class,
         ScheduleCursorProgress::class, ScheduleCursorDailyProgress::class,
-        EvaluatorEscalation::class, ExerciseSubCounterProgress::class,
+        EvaluatorEscalation::class, ExerciseSubCounterProgress::class, ReadingSessionLog::class,
     ],
-    version = 5,
+    version = 6,
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun habitInstanceDao(): HabitInstanceDao
@@ -21,6 +21,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun scheduleCursorDailyProgressDao(): ScheduleCursorDailyProgressDao
     abstract fun evaluatorEscalationDao(): EvaluatorEscalationDao
     abstract fun exerciseSubCounterProgressDao(): ExerciseSubCounterProgressDao
+    abstract fun readingSessionLogDao(): ReadingSessionLogDao
 
     companion object {
         /** Adds Timer-with-duration kind support — see Plan 2. */
@@ -81,6 +82,28 @@ abstract class AppDatabase : RoomDatabase() {
                     "CREATE TABLE IF NOT EXISTS `exercise_sub_counter_progress` (" +
                         "`exerciseKey` TEXT NOT NULL, `date` TEXT NOT NULL, " +
                         "`count` INTEGER NOT NULL, PRIMARY KEY(`exerciseKey`, `date`))"
+                )
+            }
+        }
+
+        /** Adds the Reading per-session log table — one row per start/stop segment, the first
+         * table in this codebase with an autoincrement surrogate key instead of a composite
+         * business key (see ReadingSessionLog's doc comment for why). Never
+         * fallbackToDestructiveMigration() — see Global Constraints. */
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `reading_session_log` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `habitInstanceId` INTEGER NOT NULL, " +
+                        "`date` TEXT NOT NULL, `startedAt` INTEGER NOT NULL, `endedAt` INTEGER NOT NULL, " +
+                        "`durationSeconds` INTEGER NOT NULL)"
+                )
+                // Must match ReadingSessionLog's `indices = [Index(value = ["habitInstanceId", "date"])]`
+                // exactly (including Room's default index-name convention) or schema validation
+                // fails at app startup with a migration-mismatch exception.
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_reading_session_log_habitInstanceId_date` " +
+                        "ON `reading_session_log` (`habitInstanceId`, `date`)"
                 )
             }
         }

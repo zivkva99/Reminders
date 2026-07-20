@@ -21,6 +21,19 @@ private class FakeTimerDailyProgressDao : TimerDailyProgressDao {
     override suspend fun getActiveSessions() = rows.values.filter { it.activeSessionStartedAt != null }
 }
 
+private class FakeReadingSessionLogDao : ReadingSessionLogDao {
+    val logged = mutableListOf<ReadingSessionLog>()
+    private var nextId = 1L
+    override suspend fun insert(session: ReadingSessionLog): Long {
+        val withId = session.copy(id = nextId++)
+        logged += withId
+        return withId.id
+    }
+    override suspend fun getForDate(habitInstanceId: Long, date: String) =
+        logged.filter { it.habitInstanceId == habitInstanceId && it.date == date }.sortedBy { it.startedAt }
+    override suspend fun delete(session: ReadingSessionLog) { logged.removeAll { it.id == session.id } }
+}
+
 class TimerHabitRepositoryTest {
 
     private val instance = HabitInstance(
@@ -201,5 +214,66 @@ class TimerHabitRepositoryTest {
         // so a plain consecutive walk from Thursday would immediately return 0 — proving this
         // delegates to StreakCalculator's enabled-day-aware walk, not a naive one.
         assertEquals(0, repo.currentStreak(instance, thursday))
+    }
+
+    @Test
+    fun stop_logsACompletedSessionWithStartAndEndTimestamps() = runTest {
+        val clock = FakeClock(millis = 1_000_000L)
+        val dao = FakeTimerDailyProgressDao()
+        val sessionLogDao = FakeReadingSessionLogDao()
+        val repo = TimerHabitRepository(dao, clock, sessionLogDao)
+        repo.start(instance, today)
+        clock.millis += 120_000L // 120s elapse
+
+        repo.stop(instance, today)
+
+        val sessions = repo.sessionsForDate(instance, today)
+        assertEquals(1, sessions.size)
+        assertEquals(1_000_000L, sessions[0].startedAt)
+        assertEquals(1_120_000L, sessions[0].endedAt)
+        assertEquals(120, sessions[0].durationSeconds)
+    }
+
+    @Test
+    fun stop_withNoSessionLogDaoProvided_stillCompletesNormally_neverCrashes() = runTest {
+        // Regression guard: TimerHabitRepository's 8 pre-existing call sites (test files
+        // predating this feature) construct it with only (dao, clock) — sessionLogDao must
+        // default to null and finishSession must tolerate that, never crash for lack of
+        // session logging.
+        val clock = FakeClock(millis = 1_000_000L)
+        val dao = FakeTimerDailyProgressDao()
+        val repo = TimerHabitRepository(dao, clock)
+        repo.start(instance, today)
+        clock.millis += 60_000L
+
+        val result = repo.stop(instance, today)
+
+        assertEquals(840, result?.remainingSeconds)
+    }
+
+    @Test
+    fun deleteSession_removesItFromSessionsForDate() = runTest {
+        val clock = FakeClock(millis = 1_000_000L)
+        val dao = FakeTimerDailyProgressDao()
+        val sessionLogDao = FakeReadingSessionLogDao()
+        val repo = TimerHabitRepository(dao, clock, sessionLogDao)
+        repo.start(instance, today)
+        clock.millis += 60_000L
+        repo.stop(instance, today)
+        val logged = repo.sessionsForDate(instance, today).single()
+
+        repo.deleteSession(logged)
+
+        assertEquals(emptyList(), repo.sessionsForDate(instance, today))
+    }
+
+    @Test
+    fun completedDates_returnsOnlyDatesWithCompletedTrue() = runTest {
+        val dao = FakeTimerDailyProgressDao()
+        dao.rows[1L to "2026-07-17"] = TimerDailyProgress(1L, "2026-07-17", 900, 0, true, 1L, null)
+        dao.rows[1L to "2026-07-18"] = TimerDailyProgress(1L, "2026-07-18", 900, 400, false, null, null)
+        val repo = TimerHabitRepository(dao, FakeClock())
+
+        assertEquals(listOf("2026-07-17"), repo.completedDates(instance))
     }
 }
