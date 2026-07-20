@@ -1866,7 +1866,13 @@ import java.time.format.DateTimeFormatter
 
 @Composable
 fun ActivityScreen(activityViewModel: ActivityViewModel, exerciseViewModel: ExerciseViewModel, onBack: () -> Unit) {
+    // Corrected during task review: exerciseViewModel.refresh() must be called unconditionally
+    // here too, not left to ExerciseActivitySection's own LaunchedEffect(Unit) — that section is
+    // never composed until exerciseUiState.isLoaded is already true (see the gate below), so
+    // relying on it alone deadlocks the screen forever for any user who opens Activity without
+    // having first visited the Exercise Counter screen.
     LaunchedEffect(Unit) { activityViewModel.refresh() }
+    LaunchedEffect(Unit) { exerciseViewModel.refresh() }
     val uiState by activityViewModel.uiState.collectAsState()
     // Corrected during /autoplan design review: ExerciseActivitySection independently triggers
     // and gates on exerciseViewModel's own isLoaded (via its own LaunchedEffect(Unit)), so
