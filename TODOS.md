@@ -118,4 +118,4 @@
 
 **Context:** Surfaced during the `/autoplan` review of the Shape-into-Reminders exercise port (2026-07-19); resolved as a CEO cherry-pick during the `/autoplan` review of the ReadBook Activity Log plan (2026-07-19/20). That cherry-pick directly contradicted the plan's own inherited "Exercise stays view-only, unchanged" Global Constraint, which was corrected during the same review to allow it.
 
-**Completed:** commit `<pending — filled in immediately after Step 6's commit>` (2026-07-20)
+**Completed:** commit 4ad9fad (2026-07-20)
