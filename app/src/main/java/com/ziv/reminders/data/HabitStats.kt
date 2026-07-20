@@ -76,4 +76,10 @@ object HabitStats {
         val baseline = bestMonth(dates - currentMonthDates)
         return monthCount(dates, today) > baseline
     }
+
+    // Lifetime total — mask-independent by nature (a running total doesn't care which days
+    // were "enabled"), computed on-the-fly like every other stat in this object rather than
+    // cached in a new Room column (see this feature's design doc, "totalCount is computed
+    // on-the-fly, not stored").
+    fun totalCount(dates: Set<LocalDate>): Int = dates.size
 }

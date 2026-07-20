@@ -112,4 +112,17 @@ class HabitStatsTest {
     fun recordSuffix_isRecordFalse_returnsEmptyString() {
         assertEquals("", HabitStats.recordSuffix(false, "record"))
     }
+
+    @Test
+    fun totalCount_countsEveryDateRegardlessOfContiguity() {
+        val dates = setOf(
+            LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 5), LocalDate.of(2025, 12, 25),
+        )
+        assertEquals(3, HabitStats.totalCount(dates))
+    }
+
+    @Test
+    fun totalCount_emptySet_isZero() {
+        assertEquals(0, HabitStats.totalCount(emptySet()))
+    }
 }
