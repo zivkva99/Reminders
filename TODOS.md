@@ -116,4 +116,4 @@
 
 **Context:** Surfaced during the `/autoplan` review (2026-07-19). Originally deferred as out of the exercise-port plan's blast radius; resolved as Task 7 of the ReadBook Activity Log plan (2026-07-19/20), which already needed the notification/scheduling framework touched for Reading's Start/Snooze actions.
 
-**Completed:** commit `<pending — filled in immediately after this task's commit>` (2026-07-20)
+**Completed:** commit 84defd9 (2026-07-20)
