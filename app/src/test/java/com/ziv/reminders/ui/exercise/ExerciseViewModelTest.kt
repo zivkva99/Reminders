@@ -118,7 +118,10 @@ class ExerciseViewModelTest {
         id = EXERCISE_HABIT_INSTANCE_ID, kind = "COUNTER", name = "Exercise", enabledDaysMask = 0b1111111,
         notificationTitle = "t", notificationBody = "b", counterGoal = 5,
     )
-    private val today = LocalDate.of(2026, 7, 19)
+    // Real LocalDate.now(), not a hardcoded literal — ExerciseViewModel.refresh() internally
+    // calls LocalDate.now() itself (no injectable clock), so a fixed literal here would silently
+    // mismatch the seeded fake DB rows the day real wall-clock time moves past it.
+    private val today = LocalDate.now()
 
     private fun newViewModel(
         instanceDao: FakeHabitInstanceDao = FakeHabitInstanceDao().apply { rows[exercise.id] = exercise },
