@@ -20,6 +20,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -48,6 +52,7 @@ import kotlinx.coroutines.launch
 fun DashboardScreen(viewModel: DashboardViewModel, onOpenExercise: () -> Unit = {}, onOpenActivity: () -> Unit = {}) {
     val uiState by viewModel.uiState.collectAsState()
     val coroutineScope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
 
     // Re-reads current state on every resume (first composition, backgrounding, notification
     // tap) so the dashboard never shows stale data — see Plan 1's final-review Issue 2/4.
@@ -63,7 +68,8 @@ fun DashboardScreen(viewModel: DashboardViewModel, onOpenExercise: () -> Unit = 
                     }
                 },
             )
-        }
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { innerPadding ->
         Column(modifier = Modifier.fillMaxSize().padding(innerPadding).padding(16.dp)) {
             if (!uiState.isLoaded) return@Column
@@ -79,7 +85,19 @@ fun DashboardScreen(viewModel: DashboardViewModel, onOpenExercise: () -> Unit = 
                         coroutineScope.launch { viewModel.onResetReadingToday(habit.instanceId, context) }
                     },
                     fetchReadingSessionCountToday = { viewModel.readingSessionCountToday(habit.instanceId) },
-                    onMarkRead = { viewModel.onMarkRead(habit.instanceId) },
+                    onMarkRead = {
+                        coroutineScope.launch {
+                            viewModel.onMarkRead(habit.instanceId)
+                            val result = snackbarHostState.showSnackbar(
+                                message = "Marked as read",
+                                actionLabel = "Undo",
+                                duration = SnackbarDuration.Short,
+                            )
+                            if (result == SnackbarResult.ActionPerformed) {
+                                viewModel.onUndoMarkRead(habit.instanceId)
+                            }
+                        }
+                    },
                     onOpenExercise = onOpenExercise,
                 )
                 Spacer(Modifier.height(8.dp))

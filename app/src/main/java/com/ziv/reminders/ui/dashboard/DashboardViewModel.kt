@@ -45,12 +45,20 @@ class DashboardViewModel(private val dataSource: DashboardDataSource) : ViewMode
         }
     }
 
-    fun onMarkRead(instanceId: Long) {
-        viewModelScope.launch {
-            val instance = dataSource.habitInstanceDao.getById(instanceId) ?: return@launch
-            dataSource.scheduleCursorRepository.markRead(instance, LocalDate.now())
-            refresh()
-        }
+    /** Suspend, not fire-and-forget on viewModelScope (mirrors the fix applied to
+     * ExerciseViewModel.adjustSubCounterForDate in the prior plan) — DashboardScreen's Tanakh
+     * row needs to await this completing before showing the quick-undo snackbar; a
+     * fire-and-forget launch gives the caller no signal that the write has happened. */
+    suspend fun onMarkRead(instanceId: Long) {
+        val instance = dataSource.habitInstanceDao.getById(instanceId) ?: return
+        dataSource.scheduleCursorRepository.markRead(instance, LocalDate.now())
+        refresh()
+    }
+
+    suspend fun onUndoMarkRead(instanceId: Long) {
+        val instance = dataSource.habitInstanceDao.getById(instanceId) ?: return
+        dataSource.scheduleCursorRepository.undoMarkRead(instance, LocalDate.now())
+        refresh()
     }
 
     /** Starts/stops TimerService (the single source of truth for the DB write) then
