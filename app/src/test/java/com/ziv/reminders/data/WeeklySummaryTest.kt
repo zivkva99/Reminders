@@ -23,6 +23,16 @@ class WeeklySummaryTest {
     }
 
     @Test
+    fun compute_sevenDaysBack_isExcluded() {
+        // Pins the exact boundary a (0..7) off-by-one bug would pass undetected by the two
+        // tests above alone (day-6 included, day-10 excluded) — this is the one day that
+        // actually distinguishes a correct 7-day window from an 8-day one.
+        val exerciseDates = setOf(today.minusDays(7))
+        val summary = WeeklySummary.compute(exerciseDates, emptySet(), emptySet(), today)
+        assertEquals(0, summary.exerciseDays)
+    }
+
+    @Test
     fun compute_eachHabitCountedIndependently() {
         val exerciseDates = setOf(today)
         val readingDates = setOf(today, today.minusDays(1))
