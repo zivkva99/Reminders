@@ -32,6 +32,9 @@ private class FakeReadingSessionLogDao : ReadingSessionLogDao {
     override suspend fun getForDate(habitInstanceId: Long, date: String) =
         logged.filter { it.habitInstanceId == habitInstanceId && it.date == date }.sortedBy { it.startedAt }
     override suspend fun delete(session: ReadingSessionLog) { logged.removeAll { it.id == session.id } }
+    override suspend fun deleteForDate(habitInstanceId: Long, date: String) {
+        logged.removeAll { it.habitInstanceId == habitInstanceId && it.date == date }
+    }
 }
 
 class TimerHabitRepositoryTest {

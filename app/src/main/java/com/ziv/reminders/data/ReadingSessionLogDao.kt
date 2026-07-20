@@ -15,4 +15,10 @@ interface ReadingSessionLogDao {
 
     @Delete
     suspend fun delete(session: ReadingSessionLog)
+
+    // Feeds TimerHabitRepository.resetToday (Task 2) – deletes every session logged for a
+    // given instance/date in one statement, rather than requiring the caller to fetch-then-
+    // delete each row individually via the single-row delete() above.
+    @Query("DELETE FROM reading_session_log WHERE habitInstanceId = :habitInstanceId AND date = :date")
+    suspend fun deleteForDate(habitInstanceId: Long, date: String)
 }

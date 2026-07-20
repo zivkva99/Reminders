@@ -72,4 +72,29 @@ class ReadingSessionLogDaoTest {
         assertTrue(db.readingSessionLogDao().getForDate(2L, "2026-07-19").isEmpty())
         db.close()
     }
+
+    @Test
+    fun deleteForDate_removesAllRowsForThatInstanceAndDate() = runTest {
+        val db = newDb()
+        db.readingSessionLogDao().insert(ReadingSessionLog(habitInstanceId = 2L, date = "2026-07-19", startedAt = 1000L, endedAt = 1300L, durationSeconds = 300))
+        db.readingSessionLogDao().insert(ReadingSessionLog(habitInstanceId = 2L, date = "2026-07-19", startedAt = 5000L, endedAt = 5500L, durationSeconds = 500))
+
+        db.readingSessionLogDao().deleteForDate(2L, "2026-07-19")
+
+        assertTrue(db.readingSessionLogDao().getForDate(2L, "2026-07-19").isEmpty())
+        db.close()
+    }
+
+    @Test
+    fun deleteForDate_doesNotAffectOtherDatesOrInstances() = runTest {
+        val db = newDb()
+        db.readingSessionLogDao().insert(ReadingSessionLog(habitInstanceId = 2L, date = "2026-07-18", startedAt = 1000L, endedAt = 1300L, durationSeconds = 300))
+        db.readingSessionLogDao().insert(ReadingSessionLog(habitInstanceId = 5L, date = "2026-07-19", startedAt = 1000L, endedAt = 1300L, durationSeconds = 300))
+
+        db.readingSessionLogDao().deleteForDate(2L, "2026-07-19")
+
+        assertEquals(1, db.readingSessionLogDao().getForDate(2L, "2026-07-18").size)
+        assertEquals(1, db.readingSessionLogDao().getForDate(5L, "2026-07-19").size)
+        db.close()
+    }
 }
