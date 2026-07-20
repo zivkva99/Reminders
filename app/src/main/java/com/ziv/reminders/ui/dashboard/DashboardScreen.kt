@@ -249,10 +249,25 @@ private fun ScheduleCursorHabitRow(habit: HabitRowUiState, status: HabitStatus.S
             Text(habit.name, style = MaterialTheme.typography.bodyLarge)
             Text("Streak: ${habit.streak}d", style = MaterialTheme.typography.bodySmall)
         }
-        val chapterText = if (status.finished) "Finished" else "${status.book} ${status.chapterHeb}"
-        Text(
-            text = if (status.completed) "✓ $chapterText" else chapterText,
-            style = MaterialTheme.typography.titleMedium,
-        )
+        // dueCount is only ever nonzero when status is Behind (see ScheduleCursorRepository's
+        // deriveScheduleEntryStatus branches) — OnSchedule/Waiting/Finished always carry 0.
+        Column(horizontalAlignment = Alignment.End) {
+            val chapterText = if (status.finished) "Finished" else "${status.book} ${status.chapterHeb}"
+            Text(
+                text = if (status.completed) "✓ $chapterText" else chapterText,
+                style = MaterialTheme.typography.titleMedium,
+            )
+            // On its own line, styled distinctly (not interpolated into the line above) — found
+            // during /autoplan design review: completed and dueCount>0 aren't mutually
+            // exclusive (today's entry can be done while still behind on the overall schedule),
+            // so a single shared string like "✓ ... · 3 behind" read as self-contradictory.
+            if (status.dueCount > 0) {
+                Text(
+                    text = "${status.dueCount} behind",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+        }
     }
 }
