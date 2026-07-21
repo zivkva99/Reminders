@@ -124,6 +124,23 @@ class ScheduleCursorRepositoryTest {
     }
 
     @Test
+    fun markRead_caughtUpAndNextEntryNotYetDue_isANoOp() = runTest {
+        // Reported live bug (2026-07-21): repeatedly tapping the Tanakh row after already
+        // catching up silently advanced the cursor through future chapters whose scheduled date
+        // hadn't arrived yet — markRead only guarded against Finished, never against Waiting.
+        val progressDao = FakeScheduleCursorProgressDao()
+        val dailyDao = FakeScheduleCursorDailyProgressDao()
+        val repo = ScheduleCursorRepository(progressDao, dailyDao, schedule)
+        val sunday = LocalDate.of(2026, 7, 12)
+        repo.markRead(instance, sunday) // cursor now at index 1 — Monday's entry, dated 2026-07-13
+
+        repo.markRead(instance, sunday) // still Sunday — Monday's entry isn't due yet
+
+        assertEquals(1, progressDao.rows[3L]?.cursorIndex) // must not have advanced to 2
+        assertEquals(1, dailyDao.rows[3L to sunday.toString()]?.entriesMarkedRead) // must not double-count today
+    }
+
+    @Test
     fun undoMarkRead_decrementsCursorByOne() = runTest {
         val progressDao = FakeScheduleCursorProgressDao()
         val dailyDao = FakeScheduleCursorDailyProgressDao()

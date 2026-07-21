@@ -39,10 +39,13 @@ class ScheduleCursorRepository(
 
     suspend fun markRead(instance: HabitInstance, today: LocalDate) {
         val cursorIndex = progressDao.getByInstance(instance.id)?.cursorIndex ?: 0
-        // No-op once the schedule is exhausted (all entries read, or the bundled CSV failed to
-        // load and fell back to an empty list) — otherwise tapping a "Finished" row would still
-        // advance the cursor past the end and falsely credit a streak day for nothing read.
-        if (deriveScheduleEntryStatus(schedule, cursorIndex, today) is ScheduleEntryStatus.Finished) return
+        // No-op once the schedule is exhausted (Finished), or once the cursor has caught up to —
+        // or gotten ahead of — today's date (Waiting): the schedule's dates never move, so
+        // nothing new is due until tomorrow. Without the Waiting guard (bug found live
+        // 2026-07-21), repeatedly tapping an already-caught-up row silently read ahead through
+        // future chapters, defeating the whole catch-up/pacing model this kind exists for.
+        val status = deriveScheduleEntryStatus(schedule, cursorIndex, today)
+        if (status is ScheduleEntryStatus.Finished || status is ScheduleEntryStatus.Waiting) return
         progressDao.upsert(ScheduleCursorProgress(instance.id, cursorIndex + 1))
 
         val key = today.toString()
