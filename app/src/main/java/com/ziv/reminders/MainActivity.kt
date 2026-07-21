@@ -57,7 +57,6 @@ class MainActivity : ComponentActivity() {
                     composable("exerciseCounter") {
                         ExerciseCounterScreen(
                             viewModel = exerciseViewModel,
-                            onOpenStats = { navController.navigate("activity") },
                             onBack = { navController.popBackStack() },
                         )
                     }

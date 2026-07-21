@@ -2,7 +2,6 @@ package com.ziv.reminders.ui.exercise
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -19,10 +18,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -60,7 +57,7 @@ internal val exerciseLabels = mapOf(
 )
 
 @Composable
-fun ExerciseCounterScreen(viewModel: ExerciseViewModel, onOpenStats: () -> Unit, onBack: () -> Unit) {
+fun ExerciseCounterScreen(viewModel: ExerciseViewModel, onBack: () -> Unit) {
     LaunchedEffect(Unit) { viewModel.refresh() }
     val uiState by viewModel.uiState.collectAsState()
     if (!uiState.isLoaded) return
@@ -73,12 +70,6 @@ fun ExerciseCounterScreen(viewModel: ExerciseViewModel, onOpenStats: () -> Unit,
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(top = 80.dp, bottom = 32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.End) {
-            IconButton(onClick = onOpenStats) {
-                Icon(imageVector = Icons.Default.DateRange, contentDescription = "Your Progress", tint = GoalGreen)
-            }
-        }
-
         Text("Today's Exercises", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(16.dp))
         Text("${uiState.current}", fontSize = 96.sp, fontWeight = FontWeight.Bold, color = countColor)
