@@ -111,6 +111,7 @@ fun DashboardScreen(viewModel: DashboardViewModel, onOpenExercise: () -> Unit = 
                         }
                     },
                     onOpenExercise = onOpenExercise,
+                    onOpenExerciseStats = onOpenActivity,
                 )
                 Spacer(Modifier.height(8.dp))
             }
@@ -127,29 +128,75 @@ private fun HabitRow(
     fetchReadingSessionCountToday: suspend () -> Int,
     onMarkRead: () -> Unit,
     onOpenExercise: () -> Unit,
+    onOpenExerciseStats: () -> Unit,
 ) {
     when (habit.status) {
-        is HabitStatus.CounterStatus -> CounterHabitRow(habit, habit.status, onIncrement, onOpenExercise)
+        is HabitStatus.CounterStatus -> CounterHabitRow(habit, habit.status, onIncrement, onOpenExercise, onOpenExerciseStats)
         is HabitStatus.TimerStatus -> TimerHabitRow(habit, habit.status, onToggleTimer, onResetReadingToday, fetchReadingSessionCountToday)
         is HabitStatus.ScheduleCursorStatus -> ScheduleCursorHabitRow(habit, habit.status, onMarkRead)
     }
 }
 
 // Dispatch is by instance ID, not by HabitKind — a hypothetical future second
-// COUNTER-kind habit must not be silently redirected into the Exercise flow just because
-// it shares HabitKind.COUNTER (see DashboardDispatchTest).
-fun shouldNavigateToExerciseDetail(instanceId: Long): Boolean = instanceId == EXERCISE_HABIT_INSTANCE_ID
+// COUNTER-kind habit must not be silently offered the Exercise long-press menu just because
+// it shares HabitKind.COUNTER (see DashboardDispatchTest). Renamed from
+// shouldNavigateToExerciseDetail: it no longer gates tap-navigation (short-tap is now a pure
+// increment for every Counter-kind habit) — it gates long-press-menu eligibility instead.
+fun hasExerciseDetailMenu(instanceId: Long): Boolean = instanceId == EXERCISE_HABIT_INSTANCE_ID
 
+// Small, deliberately generic long-press menu mechanism — a row supplies a title and a list of
+// labeled actions, this renders them as an AlertDialog with one button per option plus Cancel.
+// Chosen over a one-off dialog hardcoded in CounterHabitRow so any future row that needs a
+// "pick where to go" long-press can reuse this without new bespoke dialog code — the one
+// deliberate exception to this codebase's usual anti-premature-generalization stance (no second
+// use case exists yet; kept intentionally small — one data class, one composable, no config
+// knobs beyond title/options/onDismiss).
+private data class RowMenuOption(val label: String, val onSelect: () -> Unit)
+
+@Composable
+private fun RowLongPressMenu(title: String, options: List<RowMenuOption>, onDismiss: () -> Unit) {
+    // Cancel lives in the body alongside the real options (not confirmButton) — corrected
+    // during /autoplan design review: AlertDialog's confirmButton slot renders with more visual
+    // emphasis than plain body TextButtons, so putting Cancel there (the original draft) made
+    // "do nothing" look like the recommended choice instead of the N real options. confirmButton
+    // is a required parameter but doesn't have to render anything, so it's left empty.
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column {
+                options.forEach { option ->
+                    TextButton(onClick = { onDismiss(); option.onSelect() }) { Text(option.label) }
+                }
+                TextButton(onClick = onDismiss) { Text("Cancel") }
+            }
+        },
+        confirmButton = {},
+    )
+}
+
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun CounterHabitRow(
     habit: HabitRowUiState,
     status: HabitStatus.CounterStatus,
     onIncrement: () -> Unit,
     onOpenExercise: () -> Unit,
+    onOpenExerciseStats: () -> Unit,
 ) {
-    val onClick = if (shouldNavigateToExerciseDetail(habit.instanceId)) onOpenExercise else onIncrement
+    var showMenu by remember { mutableStateOf(false) }
+    val isExercise = hasExerciseDetailMenu(habit.instanceId)
+
+    // Noted during /autoplan design review, not fixed: if the user long-presses and navigates
+    // away while a prior tap's undo-snackbar coroutine is still pending (within its ~4s window),
+    // leaving composition cancels that coroutine scope — the Undo action is silently lost, no
+    // data corruption, just a missed correction window. Acceptable for a personal app; a stray
+    // extra increment is a one-tap fix on the next visit.
     Row(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+        modifier = Modifier.fillMaxWidth().combinedClickable(
+            onClick = onIncrement,
+            onLongClick = if (isExercise) { { showMenu = true } } else null,
+        ),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
@@ -160,6 +207,17 @@ private fun CounterHabitRow(
         Text(
             text = if (status.completed) "✓ ${status.current}/${status.goal}" else "${status.current}/${status.goal}",
             style = MaterialTheme.typography.titleMedium,
+        )
+    }
+
+    if (showMenu) {
+        RowLongPressMenu(
+            title = habit.name,
+            options = listOf(
+                RowMenuOption("Counter", onOpenExercise),
+                RowMenuOption("Statistics", onOpenExerciseStats),
+            ),
+            onDismiss = { showMenu = false },
         )
     }
 }
