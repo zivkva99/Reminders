@@ -68,6 +68,30 @@ class DashboardViewModelTest {
     }
 
     @Test
+    fun onUndoIncrement_reversesTheMostRecentIncrement() = runTest {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java)
+            .setQueryCoroutineContext(StandardTestDispatcher(testScheduler))
+            .build()
+        db.habitInstanceDao().insertIfAbsent(
+            HabitInstance(1L, "COUNTER", "Exercise", 0b1111111, "t", "b", 5)
+        )
+        val viewModel = DashboardViewModel(TestAppContainer(db))
+        viewModel.refresh()
+        testScheduler.advanceUntilIdle()
+        viewModel.onIncrement(1L)
+        testScheduler.advanceUntilIdle()
+
+        viewModel.onUndoIncrement(1L)
+        testScheduler.advanceUntilIdle()
+
+        val status = viewModel.uiState.value.habits[0].status as HabitStatus.CounterStatus
+        assertEquals(0, status.current)
+
+        db.close()
+    }
+
+    @Test
     fun refresh_habitDisabledToday_isExcludedFromRows() = runTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java)

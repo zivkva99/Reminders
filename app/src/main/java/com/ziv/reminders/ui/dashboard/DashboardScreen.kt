@@ -77,7 +77,19 @@ fun DashboardScreen(viewModel: DashboardViewModel, onOpenExercise: () -> Unit = 
                 val context = LocalContext.current
                 HabitRow(
                     habit = habit,
-                    onIncrement = { viewModel.onIncrement(habit.instanceId) },
+                    onIncrement = {
+                        coroutineScope.launch {
+                            viewModel.onIncrement(habit.instanceId)
+                            val result = snackbarHostState.showSnackbar(
+                                message = "Incremented",
+                                actionLabel = "Undo",
+                                duration = SnackbarDuration.Short,
+                            )
+                            if (result == SnackbarResult.ActionPerformed) {
+                                viewModel.onUndoIncrement(habit.instanceId)
+                            }
+                        }
+                    },
                     onToggleTimer = { displayedRemainingSeconds ->
                         viewModel.onToggleTimer(habit.instanceId, context, displayedRemainingSeconds)
                     },

@@ -37,12 +37,20 @@ class DashboardViewModel(private val dataSource: DashboardDataSource) : ViewMode
         }
     }
 
-    fun onIncrement(instanceId: Long) {
-        viewModelScope.launch {
-            val instance = dataSource.habitInstanceDao.getById(instanceId) ?: return@launch
-            dataSource.counterHabitRepository.increment(instance, LocalDate.now())
-            refresh()
-        }
+    /** Suspend, not fire-and-forget on viewModelScope (mirrors the fix applied to onMarkRead
+     * in the prior plan) — DashboardScreen's Exercise row needs to await this completing before
+     * showing the quick-undo snackbar; a fire-and-forget launch gives the caller no signal that
+     * the write has happened. */
+    suspend fun onIncrement(instanceId: Long) {
+        val instance = dataSource.habitInstanceDao.getById(instanceId) ?: return
+        dataSource.counterHabitRepository.increment(instance, LocalDate.now())
+        refresh()
+    }
+
+    suspend fun onUndoIncrement(instanceId: Long) {
+        val instance = dataSource.habitInstanceDao.getById(instanceId) ?: return
+        dataSource.counterHabitRepository.undoIncrement(instance, LocalDate.now())
+        refresh()
     }
 
     /** Suspend, not fire-and-forget on viewModelScope (mirrors the fix applied to
