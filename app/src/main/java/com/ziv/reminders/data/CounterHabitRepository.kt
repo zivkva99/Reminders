@@ -24,6 +24,23 @@ class CounterHabitRepository(private val dao: CounterDailyProgressDao) {
         )
     }
 
+    // Floored at 0 (never negative), same guard shape as ScheduleCursorRepository.undoMarkRead —
+    // reverses exactly one increment, recomputing completed from the new count so undoing below
+    // goal correctly un-sets it.
+    suspend fun undoIncrement(instance: HabitInstance, today: LocalDate) {
+        val goal = requireNotNull(instance.counterGoal) { "Counter habit ${instance.id} has no counterGoal" }
+        val current = dao.getByDate(instance.id, today.toString())?.count ?: 0
+        val newCount = (current - 1).coerceAtLeast(0)
+        dao.upsert(
+            CounterDailyProgress(
+                habitInstanceId = instance.id,
+                date = today.toString(),
+                count = newCount,
+                completed = newCount >= goal,
+            )
+        )
+    }
+
     // Delegates to HabitStats.currentStreak (same anchor logic: if today isn't done yet,
     // the day isn't over — the streak counts through yesterday and isn't broken until
     // midnight passes without today being hit) so this app has exactly one streak-anchor

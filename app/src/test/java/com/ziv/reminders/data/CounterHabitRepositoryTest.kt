@@ -65,6 +65,42 @@ class CounterHabitRepositoryTest {
     }
 
     @Test
+    fun undoIncrement_decrementsByOne() = runTest {
+        val dao = FakeCounterDailyProgressDao()
+        val repo = CounterHabitRepository(dao)
+        repeat(3) { repo.increment(instance, today) }
+
+        repo.undoIncrement(instance, today)
+
+        val status = repo.todayStatus(instance, today)
+        assertEquals(2, status.current)
+    }
+
+    @Test
+    fun undoIncrement_atZero_isANoOp_neverGoesNegative() = runTest {
+        val dao = FakeCounterDailyProgressDao()
+        val repo = CounterHabitRepository(dao)
+
+        repo.undoIncrement(instance, today)
+
+        val status = repo.todayStatus(instance, today)
+        assertEquals(0, status.current)
+    }
+
+    @Test
+    fun undoIncrement_droppingBelowGoal_unsetsCompleted() = runTest {
+        val dao = FakeCounterDailyProgressDao()
+        val repo = CounterHabitRepository(dao)
+        repeat(5) { repo.increment(instance, today) } // reaches goal (5), completed = true
+
+        repo.undoIncrement(instance, today)
+
+        val status = repo.todayStatus(instance, today)
+        assertEquals(4, status.current)
+        assertFalse(status.completed)
+    }
+
+    @Test
     fun currentStreak_todayNotDoneYet_countsThroughYesterday() = runTest {
         val dao = FakeCounterDailyProgressDao()
         dao.rows[1L to "2026-07-12"] = CounterDailyProgress(1L, "2026-07-12", 5, true)
