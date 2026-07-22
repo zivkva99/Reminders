@@ -115,7 +115,7 @@ fun ActivityScreen(activityViewModel: ActivityViewModel, exerciseViewModel: Exer
 }
 
 @Composable
-private fun HabitStatsSummary(title: String, state: ActivitySectionState) {
+internal fun HabitStatsSummary(title: String, state: ActivitySectionState) {
     Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp)) {
         Text(title, style = MaterialTheme.typography.titleMedium)
         Text("Streak: ${state.streak} day${if (state.streak == 1) "" else "s"}", style = MaterialTheme.typography.bodyLarge)
@@ -124,7 +124,7 @@ private fun HabitStatsSummary(title: String, state: ActivitySectionState) {
 }
 
 @Composable
-private fun EmptySectionState() {
+internal fun EmptySectionState() {
     Text(
         text = "No history yet",
         style = MaterialTheme.typography.bodyLarge,
@@ -138,7 +138,7 @@ private fun EmptySectionState() {
 // grids, with no cue distinguishing them before the user taps). One line per section states
 // what a tap does before the user commits to it.
 @Composable
-private fun SectionCaption(text: String) {
+internal fun SectionCaption(text: String) {
     Text(
         text = text,
         style = MaterialTheme.typography.bodySmall,
@@ -148,7 +148,7 @@ private fun SectionCaption(text: String) {
 }
 
 @Composable
-private fun ReadingDayDetailDialog(viewModel: ActivityViewModel, date: LocalDate, onDismiss: () -> Unit) {
+internal fun ReadingDayDetailDialog(viewModel: ActivityViewModel, date: LocalDate, onDismiss: () -> Unit) {
     var sessions by remember(date) { mutableStateOf<List<ReadingSessionLog>?>(null) }
     // Tracks which session (if any) the user has tapped Delete on, pending confirmation —
     // added per /autoplan design review (Critical finding: this delete previously fired
@@ -197,7 +197,7 @@ private fun ReadingDayDetailDialog(viewModel: ActivityViewModel, date: LocalDate
 }
 
 @Composable
-private fun TanakhDayDetailDialog(viewModel: ActivityViewModel, date: LocalDate, today: LocalDate, onDismiss: () -> Unit) {
+internal fun TanakhDayDetailDialog(viewModel: ActivityViewModel, date: LocalDate, today: LocalDate, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(date.format(DateTimeFormatter.ISO_LOCAL_DATE)) },
