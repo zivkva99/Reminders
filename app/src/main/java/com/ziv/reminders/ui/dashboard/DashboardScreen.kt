@@ -1,7 +1,6 @@
 package com.ziv.reminders.ui.dashboard
 
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -49,7 +48,14 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DashboardScreen(viewModel: DashboardViewModel, onOpenExercise: () -> Unit = {}, onOpenActivity: () -> Unit = {}) {
+fun DashboardScreen(
+    viewModel: DashboardViewModel,
+    onOpenExercise: () -> Unit = {},
+    onOpenActivity: () -> Unit = {},
+    onOpenExerciseStats: () -> Unit = {},
+    onOpenReadingStats: () -> Unit = {},
+    onOpenTanakhStats: () -> Unit = {},
+) {
     val uiState by viewModel.uiState.collectAsState()
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -111,7 +117,9 @@ fun DashboardScreen(viewModel: DashboardViewModel, onOpenExercise: () -> Unit = 
                         }
                     },
                     onOpenExercise = onOpenExercise,
-                    onOpenExerciseStats = onOpenActivity,
+                    onOpenExerciseStats = onOpenExerciseStats,
+                    onOpenReadingStats = onOpenReadingStats,
+                    onOpenTanakhStats = onOpenTanakhStats,
                 )
                 Spacer(Modifier.height(8.dp))
             }
@@ -129,11 +137,13 @@ private fun HabitRow(
     onMarkRead: () -> Unit,
     onOpenExercise: () -> Unit,
     onOpenExerciseStats: () -> Unit,
+    onOpenReadingStats: () -> Unit,
+    onOpenTanakhStats: () -> Unit,
 ) {
     when (habit.status) {
         is HabitStatus.CounterStatus -> CounterHabitRow(habit, habit.status, onIncrement, onOpenExercise, onOpenExerciseStats)
-        is HabitStatus.TimerStatus -> TimerHabitRow(habit, habit.status, onToggleTimer, onResetReadingToday, fetchReadingSessionCountToday)
-        is HabitStatus.ScheduleCursorStatus -> ScheduleCursorHabitRow(habit, habit.status, onMarkRead)
+        is HabitStatus.TimerStatus -> TimerHabitRow(habit, habit.status, onToggleTimer, onResetReadingToday, fetchReadingSessionCountToday, onOpenReadingStats)
+        is HabitStatus.ScheduleCursorStatus -> ScheduleCursorHabitRow(habit, habit.status, onMarkRead, onOpenTanakhStats)
     }
 }
 
@@ -151,7 +161,7 @@ fun hasExerciseDetailMenu(instanceId: Long): Boolean = instanceId == EXERCISE_HA
 // deliberate exception to this codebase's usual anti-premature-generalization stance (no second
 // use case exists yet; kept intentionally small — one data class, one composable, no config
 // knobs beyond title/options/onDismiss).
-private data class RowMenuOption(val label: String, val onSelect: () -> Unit)
+private data class RowMenuOption(val label: String, val onSelect: () -> Unit, val isDestructive: Boolean = false)
 
 @Composable
 private fun RowLongPressMenu(title: String, options: List<RowMenuOption>, onDismiss: () -> Unit) {
@@ -166,7 +176,18 @@ private fun RowLongPressMenu(title: String, options: List<RowMenuOption>, onDism
         text = {
             Column {
                 options.forEach { option ->
-                    TextButton(onClick = { onDismiss(); option.onSelect() }) { Text(option.label) }
+                    // isDestructive options (added during /autoplan Design review) render in the
+                    // error color — matching the reset-confirm dialog's own destructive-button
+                    // convention — so a habit-driven "tap the top option" reflex from another
+                    // row's menu doesn't land on a destructive action unstyled.
+                    TextButton(
+                        onClick = { onDismiss(); option.onSelect() },
+                        colors = if (option.isDestructive) {
+                            ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                        } else {
+                            ButtonDefaults.textButtonColors()
+                        },
+                    ) { Text(option.label) }
                 }
                 TextButton(onClick = onDismiss) { Text("Cancel") }
             }
@@ -230,6 +251,7 @@ private fun TimerHabitRow(
     onToggleTimer: (Int) -> Unit,
     onResetToday: () -> Unit,
     fetchSessionCountToday: suspend () -> Int,
+    onOpenReadingStats: () -> Unit,
 ) {
     // Live 1Hz countdown while running — the ViewModel/DB only update on Start/Stop/Completion,
     // not every second; the visual tick lives here and resets whenever the underlying status
@@ -244,23 +266,17 @@ private fun TimerHabitRow(
     }
     var showResetConfirm by remember { mutableStateOf(false) }
     var sessionCountToday by remember { mutableStateOf<Int?>(null) }
+    var showMenu by remember { mutableStateOf(false) }
     val rowScope = rememberCoroutineScope()
 
     Row(
         // Pass the currently-displayed (ticked-down) value, not status.remainingSeconds — the
         // ViewModel's optimistic flip uses this to avoid visually resetting to the stale
-        // pre-session baseline the instant Stop is tapped. Long-press triggers the destructive
-        // reset confirm dialog instead of the row's normal tap-to-toggle behavior — the session
-        // count is fetched first (added during /autoplan review: a destructive, irreversible
-        // action shouldn't be confirmed blind) so the dialog can show what's about to be lost.
+        // pre-session baseline the instant Stop is tapped. Long-press now opens a menu
+        // (Reset today / Statistics) instead of jumping straight to the reset confirm dialog.
         modifier = Modifier.fillMaxWidth().combinedClickable(
             onClick = { onToggleTimer(displaySeconds) },
-            onLongClick = {
-                rowScope.launch {
-                    sessionCountToday = fetchSessionCountToday()
-                    showResetConfirm = true
-                }
-            },
+            onLongClick = { showMenu = true },
         ),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -274,6 +290,36 @@ private fun TimerHabitRow(
         Text(
             text = if (status.completed) "✓" else "%d:%02d".format(minutes, seconds),
             style = MaterialTheme.typography.titleMedium,
+        )
+    }
+
+    if (showMenu) {
+        RowLongPressMenu(
+            title = habit.name,
+            // Added during /autoplan Design review: Statistics listed first (matches Exercise's
+            // safe-option-first "Counter" and Tanakh's single-entry menu), destructive "Reset
+            // today" listed second and marked isDestructive so it renders in the error color —
+            // the prior draft put the destructive action in the same top slot every other row
+            // uses for a benign action, risking a habit-driven mis-tap.
+            options = listOf(
+                RowMenuOption("Statistics", onOpenReadingStats),
+                // Fetches the session count first (same as the row's previous direct
+                // long-click behavior) so the confirm dialog below can show what's about to
+                // be lost — a destructive, irreversible action shouldn't be confirmed blind.
+                // isDestructive is named (not trailing-lambda) because it's no longer the last
+                // parameter once isDestructive follows it — see Step 5's RowMenuOption reorder.
+                RowMenuOption(
+                    "Reset today",
+                    onSelect = {
+                        rowScope.launch {
+                            sessionCountToday = fetchSessionCountToday()
+                            showResetConfirm = true
+                        }
+                    },
+                    isDestructive = true,
+                ),
+            ),
+            onDismiss = { showMenu = false },
         )
     }
 
@@ -304,14 +350,32 @@ private fun TimerHabitRow(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun ScheduleCursorHabitRow(habit: HabitRowUiState, status: HabitStatus.ScheduleCursorStatus, onMarkRead: () -> Unit) {
-    // Once the schedule is exhausted there's nothing left to mark read — the row stops being
-    // tappable so a stray tap can't advance the cursor past the end or credit a phantom streak
-    // day (see ScheduleCursorRepository.markRead's matching finished-state no-op guard).
-    val rowModifier = Modifier.fillMaxWidth().let { if (!status.finished) it.clickable(onClick = onMarkRead) else it }
+private fun ScheduleCursorHabitRow(
+    habit: HabitRowUiState,
+    status: HabitStatus.ScheduleCursorStatus,
+    onMarkRead: () -> Unit,
+    onOpenTanakhStats: () -> Unit,
+) {
+    var showMenu by remember { mutableStateOf(false) }
+
+    // Once the schedule is exhausted there's nothing left to mark read — tap is a no-op so a
+    // stray tap can't advance the cursor past the end or credit a phantom streak day (see
+    // ScheduleCursorRepository.markRead's matching finished-state no-op guard). combinedClickable's
+    // onClick is non-nullable (unlike onLongClick), so this gating now lives inside the lambda
+    // instead of being expressed by omitting a click modifier entirely — one accepted, minor UX
+    // change: a finished row now shows a tap ripple, even though tapping still does nothing.
+    // Noted during /autoplan Eng review, not fixed: a finished row previously had no click
+    // modifier at all, so TalkBack didn't announce it as interactive; combinedClickable is now
+    // always applied, so TalkBack will announce "double tap to activate" even though tapping is
+    // a no-op. Accepted for a personal app — not worth a conditional modifier branch to avoid.
+    // Long-press is always available (Statistics makes sense regardless of finished state).
     Row(
-        modifier = rowModifier,
+        modifier = Modifier.fillMaxWidth().combinedClickable(
+            onClick = { if (!status.finished) onMarkRead() },
+            onLongClick = { showMenu = true },
+        ),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
@@ -339,5 +403,13 @@ private fun ScheduleCursorHabitRow(habit: HabitRowUiState, status: HabitStatus.S
                 )
             }
         }
+    }
+
+    if (showMenu) {
+        RowLongPressMenu(
+            title = habit.name,
+            options = listOf(RowMenuOption("Statistics", onOpenTanakhStats)),
+            onDismiss = { showMenu = false },
+        )
     }
 }
