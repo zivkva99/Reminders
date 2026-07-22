@@ -19,10 +19,13 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.ziv.reminders.ui.activity.ActivityScreen
 import com.ziv.reminders.ui.activity.ActivityViewModel
+import com.ziv.reminders.ui.activity.ReadingStatsScreen
+import com.ziv.reminders.ui.activity.TanakhStatsScreen
 import com.ziv.reminders.ui.dashboard.DashboardScreen
 import com.ziv.reminders.ui.dashboard.DashboardViewModel
 import com.ziv.reminders.ui.exercise.ExerciseCounterScreen
 import com.ziv.reminders.ui.exercise.ExerciseViewModel
+import com.ziv.reminders.ui.exercise.ExerciseStatsScreen
 import com.ziv.reminders.ui.theme.RemindersTheme
 
 class MainActivity : ComponentActivity() {
@@ -52,6 +55,9 @@ class MainActivity : ComponentActivity() {
                             viewModel = dashboardViewModel,
                             onOpenExercise = { navController.navigate("exerciseCounter") },
                             onOpenActivity = { navController.navigate("activity") },
+                            onOpenExerciseStats = { navController.navigate("exerciseStats") },
+                            onOpenReadingStats = { navController.navigate("readingStats") },
+                            onOpenTanakhStats = { navController.navigate("tanakhStats") },
                         )
                     }
                     composable("exerciseCounter") {
@@ -64,6 +70,24 @@ class MainActivity : ComponentActivity() {
                         ActivityScreen(
                             activityViewModel = activityViewModel,
                             exerciseViewModel = exerciseViewModel,
+                            onBack = { navController.popBackStack() },
+                        )
+                    }
+                    composable("exerciseStats") {
+                        ExerciseStatsScreen(
+                            viewModel = exerciseViewModel,
+                            onBack = { navController.popBackStack() },
+                        )
+                    }
+                    composable("readingStats") {
+                        ReadingStatsScreen(
+                            viewModel = activityViewModel,
+                            onBack = { navController.popBackStack() },
+                        )
+                    }
+                    composable("tanakhStats") {
+                        TanakhStatsScreen(
+                            viewModel = activityViewModel,
                             onBack = { navController.popBackStack() },
                         )
                     }
