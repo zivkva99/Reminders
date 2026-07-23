@@ -38,7 +38,7 @@ class ScheduleCursorRepositoryTest {
 
         val status = repo.todayStatus(instance, today = LocalDate.of(2026, 7, 12))
 
-        assertEquals(HabitStatus.ScheduleCursorStatus("א", "א׳", dueCount = 0, completed = false, finished = false), status)
+        assertEquals(HabitStatus.ScheduleCursorStatus("א", "א׳", dueCount = 0, completed = false, finished = false, isDueToday = true), status)
     }
 
     @Test
@@ -83,6 +83,20 @@ class ScheduleCursorRepositoryTest {
 
         assertEquals(2, status.dueCount)
         assertFalse(status.finished)
+        assertFalse(status.isDueToday)
+    }
+
+    @Test
+    fun todayStatus_nextEntryNotYetDue_isWaiting_reportsIsDueTodayFalse() = runTest {
+        val repo = ScheduleCursorRepository(FakeScheduleCursorProgressDao(), FakeScheduleCursorDailyProgressDao(), schedule)
+
+        // Cursor at index 0 (Sunday, dated 2026-07-12), but today is Saturday — the next entry
+        // isn't due yet.
+        val status = repo.todayStatus(instance, today = LocalDate.of(2026, 7, 11))
+
+        assertEquals(0, status.dueCount)
+        assertFalse(status.finished)
+        assertFalse(status.isDueToday)
     }
 
     @Test
@@ -95,6 +109,7 @@ class ScheduleCursorRepositoryTest {
 
         assertTrue(status.finished)
         assertEquals(null, status.book)
+        assertFalse(status.isDueToday)
     }
 
     @Test

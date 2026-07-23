@@ -19,5 +19,6 @@ sealed interface HabitStatus {
         val dueCount: Int,
         val completed: Boolean,
         val finished: Boolean,
+        val isDueToday: Boolean,
     ) : HabitStatus
 }

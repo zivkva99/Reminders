@@ -27,13 +27,13 @@ class ScheduleCursorRepository(
         val completedToday = dailyProgressDao.getByDate(instance.id, today.toString())?.completed ?: false
         return when (val status = deriveScheduleEntryStatus(schedule, cursorIndex, today)) {
             is ScheduleEntryStatus.Finished ->
-                HabitStatus.ScheduleCursorStatus(book = null, chapterHeb = null, dueCount = 0, completed = completedToday, finished = true)
+                HabitStatus.ScheduleCursorStatus(book = null, chapterHeb = null, dueCount = 0, completed = completedToday, finished = true, isDueToday = false)
             is ScheduleEntryStatus.OnSchedule ->
-                HabitStatus.ScheduleCursorStatus(status.entry.book, status.entry.chapterHeb, dueCount = 0, completed = completedToday, finished = false)
+                HabitStatus.ScheduleCursorStatus(status.entry.book, status.entry.chapterHeb, dueCount = 0, completed = completedToday, finished = false, isDueToday = true)
             is ScheduleEntryStatus.Behind ->
-                HabitStatus.ScheduleCursorStatus(status.entry.book, status.entry.chapterHeb, dueCount = status.dueCount, completed = completedToday, finished = false)
+                HabitStatus.ScheduleCursorStatus(status.entry.book, status.entry.chapterHeb, dueCount = status.dueCount, completed = completedToday, finished = false, isDueToday = false)
             is ScheduleEntryStatus.Waiting ->
-                HabitStatus.ScheduleCursorStatus(status.entry.book, status.entry.chapterHeb, dueCount = 0, completed = completedToday, finished = false)
+                HabitStatus.ScheduleCursorStatus(status.entry.book, status.entry.chapterHeb, dueCount = 0, completed = completedToday, finished = false, isDueToday = false)
         }
     }
 
