@@ -1,8 +1,10 @@
 package com.ziv.reminders.ui.dashboard
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -10,6 +12,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material3.AlertDialog
@@ -37,12 +41,15 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import com.ziv.reminders.data.EXERCISE_HABIT_INSTANCE_ID
 import com.ziv.reminders.data.HabitStatus
+import com.ziv.reminders.ui.exercise.GoalGreen
+import com.ziv.reminders.ui.exercise.StatusOrange
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -196,6 +203,11 @@ private fun RowLongPressMenu(title: String, options: List<RowMenuOption>, onDism
     )
 }
 
+@Composable
+private fun HabitStatusDot(color: Color) {
+    Box(modifier = Modifier.size(10.dp).background(color, CircleShape))
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun CounterHabitRow(
@@ -221,9 +233,12 @@ private fun CounterHabitRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        Column {
-            Text(habit.name, style = MaterialTheme.typography.bodyLarge)
-            Text("Streak: ${habit.streak}d", style = MaterialTheme.typography.bodySmall)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            HabitStatusDot(color = if (status.completed) GoalGreen else MaterialTheme.colorScheme.error)
+            Column {
+                Text(habit.name, style = MaterialTheme.typography.bodyLarge)
+                Text("Streak: ${habit.streak}d", style = MaterialTheme.typography.bodySmall)
+            }
         }
         Text(
             text = if (status.completed) "✓ ${status.current}/${status.goal}" else "${status.current}/${status.goal}",
@@ -281,9 +296,12 @@ private fun TimerHabitRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        Column {
-            Text(habit.name, style = MaterialTheme.typography.bodyLarge)
-            Text("Streak: ${habit.streak}d", style = MaterialTheme.typography.bodySmall)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            HabitStatusDot(color = if (status.completed) GoalGreen else MaterialTheme.colorScheme.error)
+            Column {
+                Text(habit.name, style = MaterialTheme.typography.bodyLarge)
+                Text("Streak: ${habit.streak}d", style = MaterialTheme.typography.bodySmall)
+            }
         }
         val minutes = displaySeconds / 60
         val seconds = displaySeconds % 60
@@ -379,9 +397,23 @@ private fun ScheduleCursorHabitRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        Column {
-            Text(habit.name, style = MaterialTheme.typography.bodyLarge)
-            Text("Streak: ${habit.streak}d", style = MaterialTheme.typography.bodySmall)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            HabitStatusDot(
+                color = when {
+                    // dueCount is only ever nonzero when status is Behind (see
+                    // ScheduleCursorRepository's deriveScheduleEntryStatus branches) —
+                    // OnSchedule/Waiting/Finished always carry 0. Behind wins regardless of
+                    // whether something was separately marked read today — see this plan's
+                    // design doc for why the generic `completed` flag can't be used here.
+                    status.dueCount > 0 -> MaterialTheme.colorScheme.error
+                    status.isDueToday -> StatusOrange
+                    else -> GoalGreen
+                },
+            )
+            Column {
+                Text(habit.name, style = MaterialTheme.typography.bodyLarge)
+                Text("Streak: ${habit.streak}d", style = MaterialTheme.typography.bodySmall)
+            }
         }
         // dueCount is only ever nonzero when status is Behind (see ScheduleCursorRepository's
         // deriveScheduleEntryStatus branches) — OnSchedule/Waiting/Finished always carry 0.
