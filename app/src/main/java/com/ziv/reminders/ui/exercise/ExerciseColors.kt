@@ -19,3 +19,8 @@ import androidx.compose.ui.graphics.Color
 val GoalGreen = Color(0xFF2E7D32)
 val HeatmapHit = GoalGreen
 val HeatmapPending = Color(0xFFFFD54F)
+
+// True orange (distinct from HeatmapPending's amber above) — the dashboard's Tanakh row uses
+// this for "today's chapter is due and unread, no backlog" (see DashboardScreen.kt's
+// HabitStatusDot wiring).
+val StatusOrange = Color(0xFFF57C00)
