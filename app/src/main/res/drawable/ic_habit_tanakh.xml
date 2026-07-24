@@ -1,0 +1,14 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Left tablet -->
+    <path android:fillColor="#90A4AE" android:pathData="M23,52 A15,15 0 0 1 53,52 L53,86 L23,86 Z"/>
+    <!-- Right tablet, slightly darker -->
+    <path android:fillColor="#78909C" android:pathData="M55,52 A15,15 0 0 1 85,52 L85,86 L55,86 Z"/>
+    <!-- Engraved text lines, left tablet -->
+    <path android:fillColor="#455A64" android:pathData="M29,60 L47,60 L47,63 L29,63 Z M29,68 L47,68 L47,71 L29,71 Z M29,76 L47,76 L47,79 L29,79 Z"/>
+    <!-- Engraved text lines, right tablet (darker, matching its tablet) -->
+    <path android:fillColor="#37474F" android:pathData="M61,60 L79,60 L79,63 L61,63 Z M61,68 L79,68 L79,71 L61,71 Z M61,76 L79,76 L79,79 L61,79 Z"/>
+</vector>
