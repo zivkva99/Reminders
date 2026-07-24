@@ -1,7 +1,9 @@
 package com.ziv.reminders.ui.dashboard
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -43,9 +45,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
+import com.ziv.reminders.R
 import com.ziv.reminders.data.EXERCISE_HABIT_INSTANCE_ID
 import com.ziv.reminders.data.HabitStatus
 import com.ziv.reminders.ui.exercise.GoalGreen
@@ -205,7 +209,12 @@ private fun RowLongPressMenu(title: String, options: List<RowMenuOption>, onDism
 
 @Composable
 private fun HabitStatusDot(color: Color) {
-    Box(modifier = Modifier.size(10.dp).background(color, CircleShape))
+    Box(
+        modifier = Modifier
+            .size(10.dp)
+            .background(color, CircleShape)
+            .border(1.dp, MaterialTheme.colorScheme.background, CircleShape)
+    )
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -234,6 +243,7 @@ private fun CounterHabitRow(
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Image(painter = painterResource(R.drawable.ic_habit_exercise), contentDescription = null, modifier = Modifier.size(20.dp))
             HabitStatusDot(color = if (status.completed) GoalGreen else MaterialTheme.colorScheme.error)
             Column {
                 Text(habit.name, style = MaterialTheme.typography.bodyLarge)
@@ -297,6 +307,7 @@ private fun TimerHabitRow(
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Image(painter = painterResource(R.drawable.ic_habit_reading), contentDescription = null, modifier = Modifier.size(20.dp))
             HabitStatusDot(color = if (status.completed) GoalGreen else MaterialTheme.colorScheme.error)
             Column {
                 Text(habit.name, style = MaterialTheme.typography.bodyLarge)
@@ -398,6 +409,7 @@ private fun ScheduleCursorHabitRow(
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Image(painter = painterResource(R.drawable.ic_habit_tanakh), contentDescription = null, modifier = Modifier.size(20.dp))
             HabitStatusDot(
                 color = when {
                     // dueCount is only ever nonzero when status is Behind (see
