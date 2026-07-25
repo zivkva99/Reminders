@@ -10,8 +10,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         HabitInstance::class, CounterDailyProgress::class, TimerDailyProgress::class,
         ScheduleCursorProgress::class, ScheduleCursorDailyProgress::class,
         EvaluatorEscalation::class, ExerciseSubCounterProgress::class, ReadingSessionLog::class,
+        ComputedScheduleProgress::class, ComputedScheduleWatchLog::class,
     ],
-    version = 6,
+    version = 7,
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun habitInstanceDao(): HabitInstanceDao
@@ -22,6 +23,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun evaluatorEscalationDao(): EvaluatorEscalationDao
     abstract fun exerciseSubCounterProgressDao(): ExerciseSubCounterProgressDao
     abstract fun readingSessionLogDao(): ReadingSessionLogDao
+    abstract fun computedScheduleProgressDao(): ComputedScheduleProgressDao
+    abstract fun computedScheduleWatchLogDao(): ComputedScheduleWatchLogDao
 
     companion object {
         /** Adds Timer-with-duration kind support — see Plan 2. */
@@ -104,6 +107,37 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL(
                     "CREATE INDEX IF NOT EXISTS `index_reading_session_log_habitInstanceId_date` " +
                         "ON `reading_session_log` (`habitInstanceId`, `date`)"
+                )
+            }
+        }
+
+        /** Adds ComputedSchedule kind support: 3 new nullable anchor-config columns on
+         * habit_instance (mirrors how timerTargetSeconds was added to the same table in
+         * MIGRATION_1_2 — no separate config table needed for scalar per-instance values), a
+         * new single-row-per-instance position table (mirrors schedule_cursor_progress's
+         * shape), and a new append-only per-watch-event log table (mirrors reading_session_log's
+         * shape — added per the Scope Revision below the CEO Phase 1 header; this table did not
+         * exist in the plan's original draft of this migration, but is folded into this same
+         * MIGRATION_6_7 rather than a new MIGRATION_7_8 since v7 was never shipped). Never
+         * fallbackToDestructiveMigration() — see Global Constraints. */
+        val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE habit_instance ADD COLUMN anchorItemNumber INTEGER")
+                db.execSQL("ALTER TABLE habit_instance ADD COLUMN anchorDate TEXT")
+                db.execSQL("ALTER TABLE habit_instance ADD COLUMN intervalDays INTEGER")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `computed_schedule_progress` (" +
+                        "`habitInstanceId` INTEGER NOT NULL, `nextItemNumber` INTEGER NOT NULL, " +
+                        "PRIMARY KEY(`habitInstanceId`))"
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `computed_schedule_watch_log` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `habitInstanceId` INTEGER NOT NULL, " +
+                        "`date` TEXT NOT NULL, `episodeNumber` INTEGER NOT NULL)"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_computed_schedule_watch_log_habitInstanceId_date` " +
+                        "ON `computed_schedule_watch_log` (`habitInstanceId`, `date`)"
                 )
             }
         }

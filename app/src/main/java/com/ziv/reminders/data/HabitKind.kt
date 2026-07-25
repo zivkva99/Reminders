@@ -9,4 +9,5 @@ enum class HabitKind {
     COUNTER,
     TIMER,
     SCHEDULE_CURSOR,
+    COMPUTED_SCHEDULE,
 }
