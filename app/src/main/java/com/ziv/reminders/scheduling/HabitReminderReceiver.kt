@@ -77,6 +77,7 @@ class HabitReminderReceiver : BroadcastReceiver() {
                     is HabitStatus.CounterStatus -> status.completed
                     is HabitStatus.TimerStatus -> status.completed
                     is HabitStatus.ScheduleCursorStatus -> status.completed
+                    is HabitStatus.ComputedScheduleStatus -> false
                 }
                 val alreadyEscalatedToday = escalationDao.getByDate(habitInstanceId, today().toString())?.escalated == true
                 if (!completed && !alreadyEscalatedToday) {

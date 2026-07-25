@@ -155,6 +155,7 @@ private fun HabitRow(
         is HabitStatus.CounterStatus -> CounterHabitRow(habit, habit.status, onIncrement, onOpenExercise, onOpenExerciseStats)
         is HabitStatus.TimerStatus -> TimerHabitRow(habit, habit.status, onToggleTimer, onResetReadingToday, fetchReadingSessionCountToday, onOpenReadingStats)
         is HabitStatus.ScheduleCursorStatus -> ScheduleCursorHabitRow(habit, habit.status, onMarkRead, onOpenTanakhStats)
+        is HabitStatus.ComputedScheduleStatus -> {} // ComputedScheduleHabitRow will be added in Task 4+
     }
 }
 
