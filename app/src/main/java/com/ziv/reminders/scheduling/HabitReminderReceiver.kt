@@ -77,7 +77,11 @@ class HabitReminderReceiver : BroadcastReceiver() {
                     is HabitStatus.CounterStatus -> status.completed
                     is HabitStatus.TimerStatus -> status.completed
                     is HabitStatus.ScheduleCursorStatus -> status.completed
-                    is HabitStatus.ComputedScheduleStatus -> false
+                    // dueCount == 0 means nothing has released yet — nothing to notify about —
+                    // so this counts as "completed" for reminder-suppression purposes, even
+                    // though no user action produced it. dueCount >= 1 (something new to watch)
+                    // is the only case that should ever fire this habit's reminder.
+                    is HabitStatus.ComputedScheduleStatus -> status.dueCount == 0
                 }
                 val alreadyEscalatedToday = escalationDao.getByDate(habitInstanceId, today().toString())?.escalated == true
                 if (!completed && !alreadyEscalatedToday) {
