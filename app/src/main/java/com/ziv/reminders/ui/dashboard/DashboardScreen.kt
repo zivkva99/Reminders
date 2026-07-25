@@ -243,7 +243,7 @@ private fun CounterHabitRow(
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Image(painter = painterResource(R.drawable.ic_habit_exercise), contentDescription = null, modifier = Modifier.size(20.dp))
+            Image(painter = painterResource(R.drawable.ic_habit_exercise), contentDescription = null, modifier = Modifier.size(40.dp))
             HabitStatusDot(color = if (status.completed) GoalGreen else MaterialTheme.colorScheme.error)
             Column {
                 Text(habit.name, style = MaterialTheme.typography.bodyLarge)
@@ -307,7 +307,7 @@ private fun TimerHabitRow(
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Image(painter = painterResource(R.drawable.ic_habit_reading), contentDescription = null, modifier = Modifier.size(20.dp))
+            Image(painter = painterResource(R.drawable.ic_habit_reading), contentDescription = null, modifier = Modifier.size(40.dp))
             HabitStatusDot(color = if (status.completed) GoalGreen else MaterialTheme.colorScheme.error)
             Column {
                 Text(habit.name, style = MaterialTheme.typography.bodyLarge)
@@ -409,7 +409,7 @@ private fun ScheduleCursorHabitRow(
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Image(painter = painterResource(R.drawable.ic_habit_tanakh), contentDescription = null, modifier = Modifier.size(20.dp))
+            Image(painter = painterResource(R.drawable.ic_habit_tanakh), contentDescription = null, modifier = Modifier.size(40.dp))
             HabitStatusDot(
                 color = when {
                     // dueCount is only ever nonzero when status is Behind (see
