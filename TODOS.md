@@ -2,6 +2,42 @@
 
 ## Review
 
+### C++ Weekly row: long-press opens the YouTube channel/episode
+
+**What:** Add a long-press action on the C++ Weekly dashboard row that opens the show's YouTube channel or the specific next episode via `Intent.ACTION_VIEW`.
+
+**Why:** Quick delight — lets the user jump straight to watching instead of leaving the app to find it themselves.
+
+**Pros:** Cheap to build (a single `Intent.ACTION_VIEW` call), directly serves the row's whole purpose (get to watching).
+
+**Cons:** Reopens a premise the C++ Weekly design doc explicitly closed (no long-press menu at all for this row in v1, since it has no stats to show) — a long-press *action* isn't a stats menu, but it's still new long-press behavior on a row specced to have none.
+
+**Context:** Surfaced during the `/autoplan` CEO review of the C++ Weekly reminder row plan (2026-07-25). Deferred rather than built now — the design doc's v1 scope was deliberately narrow (single row, no long-press), and adding this wasn't part of that agreed scope.
+
+**Effort:** S
+**Priority:** P3
+**Depends on:** None.
+
+---
+
+### C++ Weekly row: notification "Mark watched" action button
+
+**What:** Add an inline action button to the C++ Weekly reminder notification that advances `nextItemNumber` directly, without opening the app.
+
+**Why:** Removes a step from the most frictionless possible version of the reminder — see it, tap it, done.
+
+**Pros:** Matches what a truly frictionless reminder should feel like.
+
+**Cons:** No existing precedent in this codebase — every other habit kind's notification only opens the app on tap (`HabitReminderReceiver`'s existing generalized flow). This is genuinely new notification-action-button infrastructure (a `PendingIntent` wired to a `BroadcastReceiver` that mutates state directly), not a 30-minute touch.
+
+**Context:** Surfaced during the `/autoplan` CEO review of the C++ Weekly reminder row plan (2026-07-25).
+
+**Effort:** M
+**Priority:** P3
+**Depends on:** None.
+
+---
+
 ### Generalize the per-day sub-metric table for other habit kinds
 
 **What:** The new `exercise_sub_counter_progress` table (4 rep counters per day) is Exercise-specific. Consider a reusable "sub-metric" table shape other habit kinds could use later (e.g., Reading session notes, Tanakh chapter difficulty rating).
