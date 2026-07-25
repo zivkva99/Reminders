@@ -7,7 +7,6 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.ziv.reminders.data.DashboardDataSource
 import com.ziv.reminders.data.HabitStatus
-import com.ziv.reminders.data.isEnabledDay
 import com.ziv.reminders.service.TimerService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -23,11 +22,14 @@ class DashboardViewModel(private val dataSource: DashboardDataSource) : ViewMode
         refresh()
     }
 
+    // Shows every habit every day, regardless of enabledDaysMask — that mask still governs
+    // notification scheduling (HabitScheduler) and streak/escalation math (StreakCalculator,
+    // CrossHabitEvaluator), just not dashboard visibility, so an off-day habit stays visible
+    // and interactable here instead of disappearing.
     fun refresh() {
         viewModelScope.launch {
             val today = LocalDate.now()
             val instances = dataSource.habitInstanceDao.getAll()
-                .filter { isEnabledDay(today, it.enabledDaysMask) }
             val rows = instances.map { instance ->
                 val status = dataSource.habitEngine.todayStatus(instance, today)
                 val streak = dataSource.habitEngine.currentStreak(instance, today)

@@ -92,7 +92,10 @@ class DashboardViewModelTest {
     }
 
     @Test
-    fun refresh_habitDisabledToday_isExcludedFromRows() = runTest {
+    fun refresh_habitDisabledToday_isStillIncludedInRows() = runTest {
+        // enabledDaysMask still governs notification scheduling (HabitScheduler) and
+        // streak/escalation math (StreakCalculator, CrossHabitEvaluator) — it no longer hides a
+        // row from the dashboard on the habit's off-days.
         val context = ApplicationProvider.getApplicationContext<Context>()
         val db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java)
             .setQueryCoroutineContext(StandardTestDispatcher(testScheduler))
@@ -110,8 +113,8 @@ class DashboardViewModelTest {
 
         val state = viewModel.uiState.value
         assertTrue(state.isLoaded)
-        assertEquals(1, state.habits.size)
-        assertEquals("Exercise", state.habits[0].name)
+        assertEquals(2, state.habits.size)
+        assertEquals(setOf("Exercise", "Never"), state.habits.map { it.name }.toSet())
 
         db.close()
     }
