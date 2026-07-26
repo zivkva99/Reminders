@@ -69,9 +69,7 @@ suspend fun ensureHabitsSeeded(dao: HabitInstanceDao, computedScheduleProgressDa
                 notificationBody = "New C++ Weekly episode ready to watch?",
                 counterGoal = null,
                 anchorItemNumber = 542,
-                // TODO(human): replace with episode 542's actual release date, ISO-8601 (yyyy-MM-dd),
-                // before installing — see the design doc's Open Questions; do not guess this value.
-                anchorDate = TODO("Fill in episode 542's real release date (yyyy-MM-dd) before building"),
+                anchorDate = "2026-07-21", // episode 542's real release date, confirmed by the user
                 intervalDays = 7,
             )
         )
