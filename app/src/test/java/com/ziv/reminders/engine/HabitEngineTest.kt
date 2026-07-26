@@ -1,5 +1,10 @@
 package com.ziv.reminders.engine
 
+import com.ziv.reminders.data.ComputedScheduleProgress
+import com.ziv.reminders.data.ComputedScheduleProgressDao
+import com.ziv.reminders.data.ComputedScheduleRepository
+import com.ziv.reminders.data.ComputedScheduleWatchLog
+import com.ziv.reminders.data.ComputedScheduleWatchLogDao
 import com.ziv.reminders.data.CounterHabitRepository
 import com.ziv.reminders.data.CounterDailyProgress
 import com.ziv.reminders.data.CounterDailyProgressDao
@@ -52,6 +57,22 @@ private class FakeScheduleCursorDailyProgressDao : ScheduleCursorDailyProgressDa
         rows.values.filter { it.habitInstanceId == habitInstanceId && it.completed }.map { it.date }
 }
 
+private class FakeComputedScheduleProgressDao : ComputedScheduleProgressDao {
+    val rows = mutableMapOf<Long, ComputedScheduleProgress>()
+    override suspend fun getByInstance(habitInstanceId: Long) = rows[habitInstanceId]
+    override suspend fun insertIfAbsent(progress: ComputedScheduleProgress) { rows.putIfAbsent(progress.habitInstanceId, progress) }
+    override suspend fun upsert(progress: ComputedScheduleProgress) { rows[progress.habitInstanceId] = progress }
+}
+
+// Added per the Scope Revision (see the section below the CEO Phase 1 header) — didn't exist in
+// the plan's original draft of this task.
+private class FakeComputedScheduleWatchLogDao : ComputedScheduleWatchLogDao {
+    val rows = mutableListOf<ComputedScheduleWatchLog>()
+    override suspend fun insert(entry: ComputedScheduleWatchLog): Long { rows += entry; return rows.size.toLong() }
+    override suspend fun getWatchedDates(habitInstanceId: Long): List<String> =
+        rows.filter { it.habitInstanceId == habitInstanceId }.map { it.date }.distinct()
+}
+
 class HabitEngineTest {
 
     private val counterInstance = HabitInstance(
@@ -66,6 +87,11 @@ class HabitEngineTest {
         id = 3L, kind = "SCHEDULE_CURSOR", name = "Tanakh", enabledDaysMask = 0b1111111,
         notificationTitle = "t", notificationBody = "b", counterGoal = null,
     )
+    private val computedScheduleInstance = HabitInstance(
+        id = 4L, kind = "COMPUTED_SCHEDULE", name = "C++ Weekly", enabledDaysMask = 0b1111111,
+        notificationTitle = "t", notificationBody = "b", counterGoal = null,
+        anchorItemNumber = 542, anchorDate = "2026-07-14", intervalDays = 7,
+    )
     private val schedule = listOf(ScheduleEntry("א", "א׳", LocalDate.of(2026, 7, 14)))
     private val today = LocalDate.of(2026, 7, 14)
 
@@ -73,6 +99,7 @@ class HabitEngineTest {
         CounterHabitRepository(FakeCounterDailyProgressDao()),
         TimerHabitRepository(FakeTimerDailyProgressDao(), SystemClock),
         ScheduleCursorRepository(FakeScheduleCursorProgressDao(), FakeScheduleCursorDailyProgressDao(), schedule),
+        ComputedScheduleRepository(FakeComputedScheduleProgressDao(), FakeComputedScheduleWatchLogDao()),
     )
 
     @Test
@@ -90,6 +117,7 @@ class HabitEngineTest {
             CounterHabitRepository(counterDao),
             TimerHabitRepository(FakeTimerDailyProgressDao(), SystemClock),
             ScheduleCursorRepository(FakeScheduleCursorProgressDao(), FakeScheduleCursorDailyProgressDao(), schedule),
+            ComputedScheduleRepository(FakeComputedScheduleProgressDao(), FakeComputedScheduleWatchLogDao()),
         )
 
         assertEquals(1, engine.currentStreak(counterInstance, today))
@@ -110,6 +138,7 @@ class HabitEngineTest {
             CounterHabitRepository(FakeCounterDailyProgressDao()),
             TimerHabitRepository(timerDao, SystemClock),
             ScheduleCursorRepository(FakeScheduleCursorProgressDao(), FakeScheduleCursorDailyProgressDao(), schedule),
+            ComputedScheduleRepository(FakeComputedScheduleProgressDao(), FakeComputedScheduleWatchLogDao()),
         )
 
         assertEquals(1, engine.currentStreak(timerInstance, today))
@@ -130,9 +159,44 @@ class HabitEngineTest {
             CounterHabitRepository(FakeCounterDailyProgressDao()),
             TimerHabitRepository(FakeTimerDailyProgressDao(), SystemClock),
             ScheduleCursorRepository(FakeScheduleCursorProgressDao(), dailyDao, schedule),
+            ComputedScheduleRepository(FakeComputedScheduleProgressDao(), FakeComputedScheduleWatchLogDao()),
         )
 
         assertEquals(1, engine.currentStreak(scheduleCursorInstance, today))
+    }
+
+    @Test
+    fun todayStatus_computedScheduleKind_dispatchesToComputedScheduleRepository() = runTest {
+        // item 543's release date: 2026-07-14 + (543-542)*7 = 2026-07-21 — after `today`.
+        val status = newEngine().todayStatus(computedScheduleInstance, today)
+
+        assertEquals(HabitStatus.ComputedScheduleStatus(nextItemNumber = 543, dueCount = 0, isDueToday = false), status)
+    }
+
+    @Test
+    fun currentStreak_computedScheduleKind_dispatchesToComputedScheduleRepository() = runTest {
+        // Renamed and rewritten per the Scope Revision (see the section below the CEO Phase 1
+        // header) — this test used to assert currentStreak() was hardcoded to always return 0.
+        // It now genuinely dispatches into ComputedScheduleRepository's real HabitStats-backed
+        // computation; with an empty watch log (newEngine()'s fixture) that computation legitimately
+        // answers 0, so this still exercises the dispatch path correctly, just no longer implies
+        // the answer can never be anything else.
+        assertEquals(0, newEngine().currentStreak(computedScheduleInstance, today))
+    }
+
+    @Test
+    fun currentStreak_computedScheduleKind_withWatchLogHistory_dispatchesToRealValue() = runTest {
+        val watchLogDao = FakeComputedScheduleWatchLogDao()
+        watchLogDao.rows += ComputedScheduleWatchLog(1L, 4L, "2026-07-13", 542)
+        watchLogDao.rows += ComputedScheduleWatchLog(2L, 4L, "2026-07-14", 543)
+        val engine = HabitEngine(
+            CounterHabitRepository(FakeCounterDailyProgressDao()),
+            TimerHabitRepository(FakeTimerDailyProgressDao(), SystemClock),
+            ScheduleCursorRepository(FakeScheduleCursorProgressDao(), FakeScheduleCursorDailyProgressDao(), schedule),
+            ComputedScheduleRepository(FakeComputedScheduleProgressDao(), watchLogDao),
+        )
+
+        assertEquals(2, engine.currentStreak(computedScheduleInstance, today))
     }
 
     @Test

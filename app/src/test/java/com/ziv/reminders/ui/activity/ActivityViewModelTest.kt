@@ -1,6 +1,11 @@
 package com.ziv.reminders.ui.activity
 
 import com.ziv.reminders.data.ActivityDataSource
+import com.ziv.reminders.data.ComputedScheduleProgress
+import com.ziv.reminders.data.ComputedScheduleProgressDao
+import com.ziv.reminders.data.ComputedScheduleRepository
+import com.ziv.reminders.data.ComputedScheduleWatchLog
+import com.ziv.reminders.data.ComputedScheduleWatchLogDao
 import com.ziv.reminders.data.CounterDailyProgress
 import com.ziv.reminders.data.CounterHabitRepository
 import com.ziv.reminders.data.EXERCISE_HABIT_INSTANCE_ID
@@ -32,6 +37,20 @@ private class FakeHabitInstanceDao(private val instances: Map<Long, HabitInstanc
     override suspend fun insertIfAbsent(instance: HabitInstance) { /* unused in this test */ }
 }
 
+// ActivityDataSource doesn't expose computedScheduleRepository (see AppContainer.kt), but
+// HabitEngine's constructor now requires one regardless — this kind has no Activity-screen
+// section in v1 scope, so a no-op fake is all dataSource()'s engine needs.
+private class FakeComputedScheduleProgressDaoForActivityTest : ComputedScheduleProgressDao {
+    override suspend fun getByInstance(habitInstanceId: Long): ComputedScheduleProgress? = null
+    override suspend fun insertIfAbsent(progress: ComputedScheduleProgress) {}
+    override suspend fun upsert(progress: ComputedScheduleProgress) {}
+}
+
+private class FakeComputedScheduleWatchLogDaoForActivityTest : ComputedScheduleWatchLogDao {
+    override suspend fun insert(entry: ComputedScheduleWatchLog): Long = 0L
+    override suspend fun getWatchedDates(habitInstanceId: Long): List<String> = emptyList()
+}
+
 @OptIn(ExperimentalCoroutinesApi::class)
 class ActivityViewModelTest {
 
@@ -55,7 +74,10 @@ class ActivityViewModelTest {
         val counterRepo = CounterHabitRepository(counterDao)
         val timerRepo = TimerHabitRepository(timerDao, SystemClock)
         val cursorRepo = ScheduleCursorRepository(cursorProgressDao, cursorDailyDao, emptyList())
-        val engine = HabitEngine(counterRepo, timerRepo, cursorRepo)
+        val computedScheduleRepo = ComputedScheduleRepository(
+            FakeComputedScheduleProgressDaoForActivityTest(), FakeComputedScheduleWatchLogDaoForActivityTest(),
+        )
+        val engine = HabitEngine(counterRepo, timerRepo, cursorRepo, computedScheduleRepo)
         val dao = FakeHabitInstanceDao(mapOf(EXERCISE_HABIT_INSTANCE_ID to exercise, READING_HABIT_INSTANCE_ID to reading, TANAKH_HABIT_INSTANCE_ID to tanakh))
         return object : ActivityDataSource {
             override val habitInstanceDao = dao

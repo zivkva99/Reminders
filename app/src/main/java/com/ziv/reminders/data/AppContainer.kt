@@ -54,8 +54,16 @@ class AppContainer(context: Context) : DashboardDataSource, ExerciseDetailDataSo
     override val scheduleCursorRepository: ScheduleCursorRepository by lazy {
         ScheduleCursorRepository(scheduleCursorProgressDao, scheduleCursorDailyProgressDao, tanakhSchedule)
     }
+    override val computedScheduleRepository: ComputedScheduleRepository by lazy {
+        ComputedScheduleRepository(
+            computedScheduleProgressDao, computedScheduleWatchLogDao,
+            runInTransaction = { block -> db.withTransaction { block() } },
+        )
+    }
 
-    override val habitEngine: HabitEngine by lazy { HabitEngine(counterHabitRepository, timerHabitRepository, scheduleCursorRepository) }
+    override val habitEngine: HabitEngine by lazy {
+        HabitEngine(counterHabitRepository, timerHabitRepository, scheduleCursorRepository, computedScheduleRepository)
+    }
     val crossHabitEvaluator: CrossHabitEvaluator by lazy { CrossHabitEvaluator(habitInstanceDao, habitEngine, evaluatorEscalationDao) }
     val habitScheduler: HabitScheduler by lazy { HabitScheduler(appContext) }
 }
@@ -65,11 +73,13 @@ interface DashboardDataSource {
     val counterHabitRepository: CounterHabitRepository
     val timerHabitRepository: TimerHabitRepository
     val scheduleCursorRepository: ScheduleCursorRepository
+    val computedScheduleRepository: ComputedScheduleRepository
     val habitEngine: com.ziv.reminders.engine.HabitEngine
 }
 
 /** Parallel to DashboardDataSource, not an extension of it — keeps DashboardDataSource
- * free of Exercise-only members. AppContainer implements both. */
+ * free of Exercise-only members. AppContainer implements both. Unchanged by this plan: Exercise
+ * doesn't need computedScheduleRepository. */
 interface ExerciseDetailDataSource {
     val habitInstanceDao: HabitInstanceDao
     val counterHabitRepository: CounterHabitRepository
@@ -77,11 +87,12 @@ interface ExerciseDetailDataSource {
     val subCounterRepository: SubCounterRepository
 }
 
-/** Parallel to the other two, not an extension of either — the Activity screen needs
- * timerHabitRepository/scheduleCursorRepository (for Reading/Tanakh's completedDates,
- * session log, and undo) that DashboardDataSource doesn't expose, but deliberately excludes
- * subCounterRepository: the Activity screen's Exercise section reuses ExerciseViewModel
- * directly instead of duplicating that path (see Task 6). */
+/** Parallel to the other two, not an extension of either. Still unchanged by this plan even after
+ * the Scope Revision (see the section below the CEO Phase 1 header) added a real stats screen for
+ * this kind: `ComputedScheduleStatsScreen` (Task 6) deliberately reuses `DashboardDataSource`
+ * instead of joining the combined Activity screen's `ActivityViewModel`/`ActivityDataSource` — it
+ * already has everything the new screen needs (`habitInstanceDao`, `computedScheduleRepository`,
+ * `habitEngine`), so extending this interface too would be redundant, not required. */
 interface ActivityDataSource {
     val habitInstanceDao: HabitInstanceDao
     val counterHabitRepository: CounterHabitRepository

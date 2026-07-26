@@ -1,5 +1,10 @@
 package com.ziv.reminders.ui.exercise
 
+import com.ziv.reminders.data.ComputedScheduleProgress
+import com.ziv.reminders.data.ComputedScheduleProgressDao
+import com.ziv.reminders.data.ComputedScheduleRepository
+import com.ziv.reminders.data.ComputedScheduleWatchLog
+import com.ziv.reminders.data.ComputedScheduleWatchLogDao
 import com.ziv.reminders.data.CounterDailyProgress
 import com.ziv.reminders.data.CounterDailyProgressDao
 import com.ziv.reminders.data.CounterHabitRepository
@@ -78,6 +83,17 @@ private class FakeScheduleCursorDailyProgressDao : ScheduleCursorDailyProgressDa
     override suspend fun getCompletedDates(habitInstanceId: Long) = emptyList<String>()
 }
 
+private class FakeComputedScheduleProgressDao : ComputedScheduleProgressDao {
+    override suspend fun getByInstance(habitInstanceId: Long): ComputedScheduleProgress? = null
+    override suspend fun insertIfAbsent(progress: ComputedScheduleProgress) {}
+    override suspend fun upsert(progress: ComputedScheduleProgress) {}
+}
+
+private class FakeComputedScheduleWatchLogDao : ComputedScheduleWatchLogDao {
+    override suspend fun insert(entry: ComputedScheduleWatchLog): Long = 0L
+    override suspend fun getWatchedDates(habitInstanceId: Long): List<String> = emptyList()
+}
+
 private class FakeExerciseDetailDataSource(
     private val instanceDao: FakeHabitInstanceDao,
     counterDao: FakeCounterDailyProgressDao,
@@ -89,6 +105,7 @@ private class FakeExerciseDetailDataSource(
         counterHabitRepository,
         TimerHabitRepository(FakeTimerDailyProgressDao(), SystemClock),
         ScheduleCursorRepository(FakeScheduleCursorProgressDao(), FakeScheduleCursorDailyProgressDao(), emptyList()),
+        ComputedScheduleRepository(FakeComputedScheduleProgressDao(), FakeComputedScheduleWatchLogDao()),
     )
     override val subCounterRepository = SubCounterRepository(subCounterDao)
 }

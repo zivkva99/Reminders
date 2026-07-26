@@ -49,6 +49,17 @@ private class FakeEvaluatorEscalationDao : EvaluatorEscalationDao {
     override suspend fun upsert(escalation: EvaluatorEscalation) { rows[escalation.habitInstanceId to escalation.date] = escalation }
 }
 
+private class FakeComputedScheduleProgressDaoForCrossHabit : ComputedScheduleProgressDao {
+    override suspend fun getByInstance(habitInstanceId: Long): ComputedScheduleProgress? = null
+    override suspend fun insertIfAbsent(progress: ComputedScheduleProgress) {}
+    override suspend fun upsert(progress: ComputedScheduleProgress) {}
+}
+
+private class FakeComputedScheduleWatchLogDaoForCrossHabit : ComputedScheduleWatchLogDao {
+    override suspend fun insert(entry: ComputedScheduleWatchLog): Long = 0L
+    override suspend fun getWatchedDates(habitInstanceId: Long): List<String> = emptyList()
+}
+
 class CrossHabitEvaluatorTest {
 
     private val exercise = HabitInstance(
@@ -71,6 +82,7 @@ class CrossHabitEvaluatorTest {
             CounterHabitRepository(counterDao),
             TimerHabitRepository(timerDao, SystemClock),
             ScheduleCursorRepository(FakeScheduleCursorProgressDaoForCrossHabit(), FakeScheduleCursorDailyProgressDaoForCrossHabit(), emptyList()),
+            ComputedScheduleRepository(FakeComputedScheduleProgressDaoForCrossHabit(), FakeComputedScheduleWatchLogDaoForCrossHabit()),
         )
         return CrossHabitEvaluator(instanceDao, engine, escalationDao)
     }

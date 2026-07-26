@@ -70,6 +70,7 @@ class EscalationWorkerTest {
                 CounterHabitRepository(db.counterDailyProgressDao()),
                 TimerHabitRepository(db.timerDailyProgressDao(), SystemClock),
                 ScheduleCursorRepository(db.scheduleCursorProgressDao(), db.scheduleCursorDailyProgressDao(), emptyList()),
+                com.ziv.reminders.data.ComputedScheduleRepository(db.computedScheduleProgressDao(), db.computedScheduleWatchLogDao()),
             ),
             db.evaluatorEscalationDao(),
         )
@@ -107,6 +108,7 @@ class EscalationWorkerTest {
                 CounterHabitRepository(db.counterDailyProgressDao()),
                 TimerHabitRepository(db.timerDailyProgressDao(), SystemClock),
                 ScheduleCursorRepository(db.scheduleCursorProgressDao(), db.scheduleCursorDailyProgressDao(), emptyList()),
+                com.ziv.reminders.data.ComputedScheduleRepository(db.computedScheduleProgressDao(), db.computedScheduleWatchLogDao()),
             ),
             db.evaluatorEscalationDao(),
         )
