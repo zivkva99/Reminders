@@ -23,7 +23,7 @@ class RemindersApp : Application() {
         // ensures the cross-habit evaluator's WorkManager chain is running.
         appScope.launch {
             try {
-                ensureHabitsSeeded(container.habitInstanceDao)
+                ensureHabitsSeeded(container.habitInstanceDao, container.computedScheduleProgressDao)
                 container.timerHabitRepository.reconcileCrashedSessions()
                 val today = LocalDate.now()
                 for (instance in container.habitInstanceDao.getAll()) {

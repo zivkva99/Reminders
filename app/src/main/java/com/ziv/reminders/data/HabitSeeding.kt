@@ -1,20 +1,24 @@
 package com.ziv.reminders.data
 
+import android.util.Log
+
 const val EXERCISE_HABIT_INSTANCE_ID = 1L
 const val READING_HABIT_INSTANCE_ID = 2L
 const val TANAKH_HABIT_INSTANCE_ID = 3L
-// Value only, no ensureHabitsSeeded() entry yet — that's Task 7 ("Seed the C++ Weekly habit
-// instance"), which per the Scope Revision now runs after this task (Task 6). Added here because
-// ComputedScheduleStatsViewModel (Task 6) needs the constant to compile; matches the 4L already
-// used as this kind's habit instance id throughout Tasks 1-5's tests.
 const val CPP_WEEKLY_HABIT_INSTANCE_ID = 4L
 
 /**
  * Idempotent — safe to call on every app startup (RemindersApp.onCreate). insertIfAbsent's
  * IGNORE conflict strategy means a row already present is left untouched, so this is how a
  * future habit instance gets added too: one more insertIfAbsent call here, no UI.
+ *
+ * The C++ Weekly (ComputedSchedule) instance needs a second write beyond its HabitInstance row:
+ * computedScheduleProgressDao.insertIfAbsent seeds the starting nextItemNumber exactly once,
+ * using the same IGNORE-on-conflict idempotency as every other insertIfAbsent call in this
+ * function — a later reseed on subsequent app starts must never reset the user's tap progress
+ * back to 543.
  */
-suspend fun ensureHabitsSeeded(dao: HabitInstanceDao) {
+suspend fun ensureHabitsSeeded(dao: HabitInstanceDao, computedScheduleProgressDao: ComputedScheduleProgressDao) {
     dao.insertIfAbsent(
         HabitInstance(
             id = EXERCISE_HABIT_INSTANCE_ID,
@@ -49,4 +53,39 @@ suspend fun ensureHabitsSeeded(dao: HabitInstanceDao) {
             counterGoal = null,
         )
     )
+    // Isolated in its own try/catch (Final Approval Gate decision — flagged independently by
+    // all 3 /autoplan review phases): anchorDate is a TODO() placeholder until a human fills in
+    // episode 542's real release date, so this one instance's seeding can fail without taking
+    // down Exercise/Reading/Tanakh above, which have nothing to do with this new row's config.
+    // Catches Throwable, not Exception — TODO() throws NotImplementedError, which is an Error.
+    try {
+        dao.insertIfAbsent(
+            HabitInstance(
+                id = CPP_WEEKLY_HABIT_INSTANCE_ID,
+                kind = HabitKind.COMPUTED_SCHEDULE.name,
+                name = "C++ Weekly",
+                enabledDaysMask = 0b1111111, // every day — a new episode can be watched any day of the week
+                notificationTitle = "Reminders",
+                notificationBody = "New C++ Weekly episode ready to watch?",
+                counterGoal = null,
+                anchorItemNumber = 542,
+                // TODO(human): replace with episode 542's actual release date, ISO-8601 (yyyy-MM-dd),
+                // before installing — see the design doc's Open Questions; do not guess this value.
+                anchorDate = TODO("Fill in episode 542's real release date (yyyy-MM-dd) before building"),
+                intervalDays = 7,
+            )
+        )
+        computedScheduleProgressDao.insertIfAbsent(
+            ComputedScheduleProgress(habitInstanceId = CPP_WEEKLY_HABIT_INSTANCE_ID, nextItemNumber = 543)
+        )
+    } catch (e: Throwable) {
+        // No HabitInstance row means the dashboard simply won't render a 4th row at all — no
+        // "broken row" UI needed, since DashboardViewModel only queries/renders instances that
+        // actually exist. This log line is this function's only logging call in the whole app
+        // (see CEO Section 8 — this codebase otherwise has zero logging infra); justified here
+        // specifically because this catch's only real-world trigger is a developer forgetting to
+        // fill in anchorDate, and a silent no-op with no trace at all would be worse than a
+        // one-line signal in logcat.
+        Log.e("HabitSeeding", "Failed to seed C++ Weekly instance — row unavailable until fixed", e)
+    }
 }
