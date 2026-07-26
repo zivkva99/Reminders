@@ -3,6 +3,11 @@ package com.ziv.reminders.data
 const val EXERCISE_HABIT_INSTANCE_ID = 1L
 const val READING_HABIT_INSTANCE_ID = 2L
 const val TANAKH_HABIT_INSTANCE_ID = 3L
+// Value only, no ensureHabitsSeeded() entry yet — that's Task 7 ("Seed the C++ Weekly habit
+// instance"), which per the Scope Revision now runs after this task (Task 6). Added here because
+// ComputedScheduleStatsViewModel (Task 6) needs the constant to compile; matches the 4L already
+// used as this kind's habit instance id throughout Tasks 1-5's tests.
+const val CPP_WEEKLY_HABIT_INSTANCE_ID = 4L
 
 /**
  * Idempotent — safe to call on every app startup (RemindersApp.onCreate). insertIfAbsent's

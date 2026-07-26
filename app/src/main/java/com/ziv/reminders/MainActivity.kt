@@ -21,6 +21,8 @@ import com.ziv.reminders.ui.activity.ActivityScreen
 import com.ziv.reminders.ui.activity.ActivityViewModel
 import com.ziv.reminders.ui.activity.ReadingStatsScreen
 import com.ziv.reminders.ui.activity.TanakhStatsScreen
+import com.ziv.reminders.ui.dashboard.ComputedScheduleStatsScreen
+import com.ziv.reminders.ui.dashboard.ComputedScheduleStatsViewModel
 import com.ziv.reminders.ui.dashboard.DashboardScreen
 import com.ziv.reminders.ui.dashboard.DashboardViewModel
 import com.ziv.reminders.ui.exercise.ExerciseCounterScreen
@@ -44,6 +46,8 @@ class MainActivity : ComponentActivity() {
                 val dashboardViewModel: DashboardViewModel = viewModel(factory = DashboardViewModel.factory(container))
                 val exerciseViewModel: ExerciseViewModel = viewModel(factory = ExerciseViewModel.factory(container))
                 val activityViewModel: ActivityViewModel = viewModel(factory = ActivityViewModel.factory(container))
+                val computedScheduleStatsViewModel: ComputedScheduleStatsViewModel =
+                    viewModel(factory = ComputedScheduleStatsViewModel.factory(container))
 
                 NavHost(navController = navController, startDestination = "dashboard") {
                     composable("dashboard") {
@@ -58,6 +62,7 @@ class MainActivity : ComponentActivity() {
                             onOpenExerciseStats = { navController.navigate("exerciseStats") },
                             onOpenReadingStats = { navController.navigate("readingStats") },
                             onOpenTanakhStats = { navController.navigate("tanakhStats") },
+                            onOpenCppWeeklyStats = { navController.navigate("cppWeeklyStats") },
                         )
                     }
                     composable("exerciseCounter") {
@@ -88,6 +93,12 @@ class MainActivity : ComponentActivity() {
                     composable("tanakhStats") {
                         TanakhStatsScreen(
                             viewModel = activityViewModel,
+                            onBack = { navController.popBackStack() },
+                        )
+                    }
+                    composable("cppWeeklyStats") {
+                        ComputedScheduleStatsScreen(
+                            viewModel = computedScheduleStatsViewModel,
                             onBack = { navController.popBackStack() },
                         )
                     }
