@@ -66,6 +66,7 @@ fun DashboardScreen(
     onOpenExerciseStats: () -> Unit = {},
     onOpenReadingStats: () -> Unit = {},
     onOpenTanakhStats: () -> Unit = {},
+    onOpenCppWeeklyStats: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val coroutineScope = rememberCoroutineScope()
@@ -127,10 +128,27 @@ fun DashboardScreen(
                             }
                         }
                     },
+                    onMarkNextWatched = {
+                        coroutineScope.launch {
+                            // No "Undo" action label (unlike onIncrement/onMarkRead above) — this
+                            // kind has no per-day daily-progress table to reverse against; this is
+                            // purely an acknowledgment Snackbar (Final Approval Gate decision — this
+                            // row was otherwise the only mutating row in the app with zero tap
+                            // feedback), shown only when a tap actually did something.
+                            val watchedEpisode = viewModel.onMarkNextWatched(habit.instanceId)
+                            if (watchedEpisode != null) {
+                                snackbarHostState.showSnackbar(
+                                    message = "Marked episode $watchedEpisode watched",
+                                    duration = SnackbarDuration.Short,
+                                )
+                            }
+                        }
+                    },
                     onOpenExercise = onOpenExercise,
                     onOpenExerciseStats = onOpenExerciseStats,
                     onOpenReadingStats = onOpenReadingStats,
                     onOpenTanakhStats = onOpenTanakhStats,
+                    onOpenCppWeeklyStats = onOpenCppWeeklyStats,
                 )
                 Spacer(Modifier.height(8.dp))
             }
@@ -146,16 +164,18 @@ private fun HabitRow(
     onResetReadingToday: () -> Unit,
     fetchReadingSessionCountToday: suspend () -> Int,
     onMarkRead: () -> Unit,
+    onMarkNextWatched: () -> Unit,
     onOpenExercise: () -> Unit,
     onOpenExerciseStats: () -> Unit,
     onOpenReadingStats: () -> Unit,
     onOpenTanakhStats: () -> Unit,
+    onOpenCppWeeklyStats: () -> Unit,
 ) {
     when (habit.status) {
         is HabitStatus.CounterStatus -> CounterHabitRow(habit, habit.status, onIncrement, onOpenExercise, onOpenExerciseStats)
         is HabitStatus.TimerStatus -> TimerHabitRow(habit, habit.status, onToggleTimer, onResetReadingToday, fetchReadingSessionCountToday, onOpenReadingStats)
         is HabitStatus.ScheduleCursorStatus -> ScheduleCursorHabitRow(habit, habit.status, onMarkRead, onOpenTanakhStats)
-        is HabitStatus.ComputedScheduleStatus -> {} // ComputedScheduleHabitRow will be added in Task 4+
+        is HabitStatus.ComputedScheduleStatus -> ComputedScheduleHabitRow(habit, habit.status, onMarkNextWatched, onOpenCppWeeklyStats)
     }
 }
 
@@ -454,6 +474,74 @@ private fun ScheduleCursorHabitRow(
         RowLongPressMenu(
             title = habit.name,
             options = listOf(RowMenuOption("Statistics", onOpenTanakhStats)),
+            onDismiss = { showMenu = false },
+        )
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun ComputedScheduleHabitRow(
+    habit: HabitRowUiState,
+    status: HabitStatus.ComputedScheduleStatus,
+    onMarkNextWatched: () -> Unit,
+    onOpenCppWeeklyStats: () -> Unit,
+) {
+    var showMenu by remember { mutableStateOf(false) }
+
+    // combinedClickable, not plain clickable (updated per the Scope Revision — the plan's
+    // original draft of this composable used plain clickable, since it had no long-press action).
+    // Tap is a no-op while dueCount == 0 (nothing released yet) — mirrors
+    // ScheduleCursorRepository.markRead's own defensive guard, applied here at the UI layer too,
+    // not just inside ComputedScheduleRepository.markNextWatched. Long-press is always available
+    // (Statistics makes sense regardless of due state — same reasoning as ScheduleCursorHabitRow's
+    // own "Long-press is always available" comment).
+    Row(
+        modifier = Modifier.fillMaxWidth().combinedClickable(
+            onClick = { if (status.dueCount > 0) onMarkNextWatched() },
+            onLongClick = { showMenu = true },
+        ),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Image(painter = painterResource(R.drawable.ic_habit_cppweekly), contentDescription = null, modifier = Modifier.size(40.dp))
+            HabitStatusDot(
+                color = when {
+                    // dueCount's shape here is deliberately NOT the same as ScheduleCursorStatus's
+                    // dueCount (see ComputedSchedule.kt's deriveComputedScheduleStatus doc
+                    // comment): dueCount == 1 means "due today", so red is reserved for
+                    // dueCount > 1 (behind by more than one release), not dueCount > 0.
+                    status.dueCount > 1 -> MaterialTheme.colorScheme.error
+                    status.isDueToday -> StatusOrange
+                    else -> GoalGreen
+                },
+            )
+            Column {
+                Text(habit.name, style = MaterialTheme.typography.bodyLarge)
+                // Still replaces the usual "Streak: Nd" line with the episode number, unchanged by
+                // the Scope Revision — this row's own display stays as originally designed even
+                // though currentStreak() now returns a real value (it feeds the new stats screen,
+                // Task 6, instead of this line — see ComputedScheduleRepository's doc comment).
+                Text("Episode ${status.nextItemNumber}", style = MaterialTheme.typography.bodySmall)
+            }
+        }
+        val statusText = when {
+            status.dueCount > 1 -> "${status.dueCount} behind"
+            status.isDueToday -> "New!"
+            else -> "Waiting"
+        }
+        Text(
+            text = statusText,
+            style = MaterialTheme.typography.titleMedium,
+            color = if (status.dueCount > 1) MaterialTheme.colorScheme.error else Color.Unspecified,
+        )
+    }
+
+    if (showMenu) {
+        RowLongPressMenu(
+            title = habit.name,
+            options = listOf(RowMenuOption("Statistics", onOpenCppWeeklyStats)),
             onDismiss = { showMenu = false },
         )
     }

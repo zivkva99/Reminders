@@ -71,6 +71,25 @@ class DashboardViewModel(private val dataSource: DashboardDataSource) : ViewMode
         refresh()
     }
 
+    /** No undo — this kind has no per-day daily-progress table to reverse against (v1's
+     * ComputedScheduleProgress is a single running integer, not a per-day row); see the design
+     * doc, which doesn't ask for one either.
+     *
+     * Returns the episode number that was just marked watched (for the caller's Snackbar text —
+     * Final Approval Gate decision: this row was otherwise the only mutating row in the app with
+     * zero tap feedback), or null if the tap was a no-op (nothing due yet). Reads todayStatus
+     * once here to capture nextItemNumber *before* the increment, in addition to
+     * markNextWatched's own internal read — a second cheap O(1) local Room read, not a
+     * correctness concern for a single-user personal app. */
+    suspend fun onMarkNextWatched(instanceId: Long): Int? {
+        val instance = dataSource.habitInstanceDao.getById(instanceId) ?: return null
+        val statusBefore = dataSource.computedScheduleRepository.todayStatus(instance, LocalDate.now())
+        if (statusBefore.dueCount == 0) return null
+        dataSource.computedScheduleRepository.markNextWatched(instance, LocalDate.now())
+        refresh()
+        return statusBefore.nextItemNumber
+    }
+
     /** Starts/stops TimerService (the single source of truth for the DB write) then
      * optimistically flips the row locally — see this task's Interfaces note for why an
      * immediate refresh() would race the service's own async write instead.

@@ -334,4 +334,70 @@ class DashboardViewModelTest {
 
         db.close()
     }
+
+    @Test
+    fun onMarkNextWatched_dueToday_advancesTheEpisodeNumberByOne() = runTest {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java)
+            .setQueryCoroutineContext(StandardTestDispatcher(testScheduler))
+            // markNextWatched runs its writes inside db.withTransaction (TestAppContainer's real
+            // transactional wiring) — see onResetReadingToday_idleCompletedDay_... above for why
+            // allowMainThreadQueries() is the standard escape hatch here.
+            .allowMainThreadQueries()
+            .build()
+        val today = java.time.LocalDate.now()
+        db.habitInstanceDao().insertIfAbsent(
+            HabitInstance(
+                id = 4L, kind = "COMPUTED_SCHEDULE", name = "C++ Weekly", enabledDaysMask = 0b1111111,
+                notificationTitle = "t", notificationBody = "b", counterGoal = null,
+                anchorItemNumber = 542, anchorDate = today.toString(), intervalDays = 7,
+            )
+        )
+        db.computedScheduleProgressDao().insertIfAbsent(
+            com.ziv.reminders.data.ComputedScheduleProgress(habitInstanceId = 4L, nextItemNumber = 542)
+        )
+        val viewModel = DashboardViewModel(TestAppContainer(db))
+        viewModel.refresh()
+        testScheduler.advanceUntilIdle()
+
+        val watchedEpisode = viewModel.onMarkNextWatched(4L)
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(542, watchedEpisode) // the episode that WAS next-to-watch, before advancing
+        val status = viewModel.uiState.value.habits[0].status as HabitStatus.ComputedScheduleStatus
+        assertEquals(543, status.nextItemNumber)
+
+        db.close()
+    }
+
+    @Test
+    fun onMarkNextWatched_notYetDue_isNoOp() = runTest {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java)
+            .setQueryCoroutineContext(StandardTestDispatcher(testScheduler))
+            .build()
+        val today = java.time.LocalDate.now()
+        db.habitInstanceDao().insertIfAbsent(
+            HabitInstance(
+                id = 4L, kind = "COMPUTED_SCHEDULE", name = "C++ Weekly", enabledDaysMask = 0b1111111,
+                notificationTitle = "t", notificationBody = "b", counterGoal = null,
+                anchorItemNumber = 542, anchorDate = today.plusDays(7).toString(), intervalDays = 7,
+            )
+        )
+        db.computedScheduleProgressDao().insertIfAbsent(
+            com.ziv.reminders.data.ComputedScheduleProgress(habitInstanceId = 4L, nextItemNumber = 542)
+        )
+        val viewModel = DashboardViewModel(TestAppContainer(db))
+        viewModel.refresh()
+        testScheduler.advanceUntilIdle()
+
+        val watchedEpisode = viewModel.onMarkNextWatched(4L)
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(null, watchedEpisode) // no-op — nothing due, so no Snackbar should show
+        val status = viewModel.uiState.value.habits[0].status as HabitStatus.ComputedScheduleStatus
+        assertEquals(542, status.nextItemNumber)
+
+        db.close()
+    }
 }
