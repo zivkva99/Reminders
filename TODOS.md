@@ -2,6 +2,24 @@
 
 ## Review
 
+### ActivityViewModelTest: wall-clock drift in refresh_populatesAllThreeSectionsAndComboStreak
+
+**What:** `ActivityViewModelTest.refresh_populatesAllThreeSectionsAndComboStreak` (in `app/src/test/java/com/ziv/reminders/ui/activity/ActivityViewModelTest.kt`) fails due to wall-clock date drift. `ActivityViewModel.refresh()` calls real `LocalDate.now()` directly with no injectable clock, while the test hardcodes `today = LocalDate.of(2026, 7, 19)`. As real time passes 2026-07-19, the test's fixture data (seeded against that hardcoded date) no longer lines up with what `refresh()` computes as "today," so the streak assertion fails.
+
+**Why:** This is a real correctness gap in the test (not hermetic — depends on wall-clock time) that will keep recurring as time passes, masking any future genuine regression in this exact test.
+
+**Pros:** Fixing makes the test deterministic and hermetic. The fix is well-understood: inject a `Clock`/date-provider into `ActivityViewModel`, matching whatever pattern other ViewModels in this codebase already use for testable "today" (check if one exists, e.g. `SystemClock` referenced elsewhere in the codebase).
+
+**Cons:** Touches `ActivityViewModel`'s constructor/dependencies, which may ripple into other call sites (similar to how the C++ Weekly work discovered several `HabitEngine(...)` construction sites needed updating for an unrelated constructor change) — a small but real diff, not zero-cost.
+
+**Context:** Surfaced during the final whole-branch `/autoplan`+`subagent-driven-development` review of the C++ Weekly reminder row plan (2026-07-25/26). Confirmed pre-existing via `git stash` bisection to a commit before that work began, and reconfirmed identically by 4 independent task reviewers across that work's implementation — never caused by that feature.
+
+**Effort:** S-M
+**Priority:** P3
+**Depends on:** None.
+
+---
+
 ### C++ Weekly row: long-press opens the YouTube channel/episode
 
 **What:** Add a long-press action on the C++ Weekly dashboard row that opens the show's YouTube channel or the specific next episode via `Intent.ACTION_VIEW`.

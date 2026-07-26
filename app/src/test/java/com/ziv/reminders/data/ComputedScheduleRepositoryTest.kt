@@ -5,7 +5,6 @@ import java.time.LocalDate
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
-import kotlin.test.assertFalse
 
 private class FakeComputedScheduleProgressDao : ComputedScheduleProgressDao {
     val rows = mutableMapOf<Long, ComputedScheduleProgress>()
