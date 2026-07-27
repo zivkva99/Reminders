@@ -41,12 +41,15 @@ class CounterHabitRepository(private val dao: CounterDailyProgressDao) {
         )
     }
 
-    // Delegates to HabitStats.currentStreak (same anchor logic: if today isn't done yet,
-    // the day isn't over — the streak counts through yesterday and isn't broken until
-    // midnight passes without today being hit) so this app has exactly one streak-anchor
-    // implementation, not two independently maintained copies that could silently diverge.
+    // Routes through StreakCalculator (mask-aware — skips disabled days rather than treating
+    // them as misses), same as Timer/ScheduleCursor. Previously delegated straight to
+    // HabitStats.currentStreak, which has no enabledDaysMask awareness at all — safe only while
+    // Exercise (the sole COUNTER instance) used an all-days mask; a second COUNTER instance with
+    // a non-all-days mask (Lego Kit, Sun-Thu) would have had its streak silently reset every
+    // disabled day. Behaviorally identical to the old implementation for an all-days mask (see
+    // CounterHabitRepositoryTest's pre-existing all-days streak tests, unchanged by this fix).
     suspend fun currentStreak(instance: HabitInstance, today: LocalDate): Int =
-        HabitStats.currentStreak(HabitStats.parseDates(dao.getCompletedDates(instance.id)), today)
+        StreakCalculator.calculate(HabitStats.parseDates(dao.getCompletedDates(instance.id)), instance.enabledDaysMask, today)
 
     // Feeds HabitStats' month/best-month/record functions (ExerciseViewModel, Task 5),
     // which need the raw completed-date rows, not just the derived streak count.

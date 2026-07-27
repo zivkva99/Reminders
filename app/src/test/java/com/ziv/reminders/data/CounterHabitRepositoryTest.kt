@@ -120,4 +120,28 @@ class CounterHabitRepositoryTest {
 
         assertEquals(1, repo.currentStreak(instance, today)) // only 07-13 counts back from today
     }
+
+    // Eng review finding (CRITICAL): currentStreak previously delegated straight to
+    // HabitStats.currentStreak, a naive consecutive-calendar-day walk with no enabledDaysMask
+    // awareness — safe only because Exercise (the sole COUNTER instance until Lego Kit) uses an
+    // all-days mask. A second COUNTER instance with a Sun-Thu mask exposes the gap: without this
+    // fix, a streak spanning a Friday/Saturday would incorrectly reset. Fixed dates (not
+    // LocalDate.now()) for hermeticity: 2026-01-01 is a Thursday, 2026-01-04 is the following
+    // Sunday — Friday/Saturday in between are disabled days that must be skipped, not counted as
+    // misses.
+    @Test
+    fun currentStreak_skipsDisabledDays_forASunThuMaskedInstance() = runTest {
+        val legoKitInstance = HabitInstance(
+            id = 5L, kind = "COUNTER", name = "Lego Kit", enabledDaysMask = 0b0011111,
+            notificationTitle = "t", notificationBody = "b", counterGoal = 1,
+        )
+        val dao = FakeCounterDailyProgressDao()
+        dao.rows[5L to "2026-01-01"] = CounterDailyProgress(5L, "2026-01-01", 1, true) // Thursday
+        dao.rows[5L to "2026-01-04"] = CounterDailyProgress(5L, "2026-01-04", 1, true) // Sunday
+        val repo = CounterHabitRepository(dao)
+
+        // A naive consecutive-calendar-day walk (the bug) sees Sat 01-03/Fri 01-02 as misses and
+        // returns 1. The correct, mask-aware answer skips the two disabled days and returns 2.
+        assertEquals(2, repo.currentStreak(legoKitInstance, today = LocalDate.of(2026, 1, 4)))
+    }
 }
