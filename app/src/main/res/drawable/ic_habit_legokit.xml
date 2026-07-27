@@ -1,0 +1,12 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Placeholder only (see design doc Open Questions — icon artwork is explicitly
+         non-blocking) — a red 2x1 Lego brick body with two studs, standing in until a real
+         icon is swapped in. Swapping this file later has zero code impact. -->
+    <path android:fillColor="#D32F2F" android:pathData="M20,40 h68 a8,8 0 0 1 8,8 v28 a8,8 0 0 1 -8,8 h-68 a8,8 0 0 1 -8,-8 v-28 a8,8 0 0 1 8,-8 Z"/>
+    <path android:fillColor="#D32F2F" android:pathData="M32,26 m-12,0 a12,12 0 1 0 24,0 a12,12 0 1 0 -24,0"/>
+    <path android:fillColor="#D32F2F" android:pathData="M76,26 m-12,0 a12,12 0 1 0 24,0 a12,12 0 1 0 -24,0"/>
+</vector>

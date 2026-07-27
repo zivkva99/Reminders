@@ -6,6 +6,7 @@ const val EXERCISE_HABIT_INSTANCE_ID = 1L
 const val READING_HABIT_INSTANCE_ID = 2L
 const val TANAKH_HABIT_INSTANCE_ID = 3L
 const val CPP_WEEKLY_HABIT_INSTANCE_ID = 4L
+const val LEGO_KIT_HABIT_INSTANCE_ID = 5L
 
 /**
  * Idempotent — safe to call on every app startup (RemindersApp.onCreate). insertIfAbsent's
@@ -86,4 +87,15 @@ suspend fun ensureHabitsSeeded(dao: HabitInstanceDao, computedScheduleProgressDa
         // one-line signal in logcat.
         Log.e("HabitSeeding", "Failed to seed C++ Weekly instance — row unavailable until fixed", e)
     }
+    dao.insertIfAbsent(
+        HabitInstance(
+            id = LEGO_KIT_HABIT_INSTANCE_ID,
+            kind = HabitKind.COUNTER.name,
+            name = "Lego Kit",
+            enabledDaysMask = 0b0011111, // Sun-Thu, matching Reading's mask
+            notificationTitle = "Reminders",
+            notificationBody = "Add one Lego kit today?",
+            counterGoal = 1,
+        )
+    )
 }
