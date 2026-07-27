@@ -33,7 +33,7 @@ class DashboardViewModel(private val dataSource: DashboardDataSource) : ViewMode
             val rows = instances.map { instance ->
                 val status = dataSource.habitEngine.todayStatus(instance, today)
                 val streak = dataSource.habitEngine.currentStreak(instance, today)
-                HabitRowUiState(instance.id, instance.name, status, streak)
+                HabitRowUiState(instance.id, instance.name, status, streak, instance.enabledDaysMask)
             }
             _uiState.value = DashboardUiState(habits = rows, isLoaded = true)
         }

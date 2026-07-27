@@ -120,6 +120,25 @@ class DashboardViewModelTest {
     }
 
     @Test
+    fun refresh_populatesEnabledDaysMaskFromTheInstance() = runTest {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java)
+            .setQueryCoroutineContext(StandardTestDispatcher(testScheduler))
+            .build()
+        db.habitInstanceDao().insertIfAbsent(
+            HabitInstance(5L, "COUNTER", "Lego Kit", 0b0011111, "t", "b", counterGoal = 1)
+        )
+        val viewModel = DashboardViewModel(TestAppContainer(db))
+
+        viewModel.refresh()
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(0b0011111, viewModel.uiState.value.habits[0].enabledDaysMask)
+
+        db.close()
+    }
+
+    @Test
     fun refresh_timerHabitNotYetStarted_populatesRowAtFullTarget() = runTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java)

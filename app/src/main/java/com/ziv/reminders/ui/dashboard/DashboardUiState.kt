@@ -7,6 +7,7 @@ data class HabitRowUiState(
     val name: String,
     val status: HabitStatus,
     val streak: Int,
+    val enabledDaysMask: Int,
 )
 
 data class DashboardUiState(

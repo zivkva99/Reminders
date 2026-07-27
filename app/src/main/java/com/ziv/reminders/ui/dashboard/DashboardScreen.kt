@@ -43,6 +43,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -52,10 +53,13 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import com.ziv.reminders.R
 import com.ziv.reminders.data.EXERCISE_HABIT_INSTANCE_ID
 import com.ziv.reminders.data.HabitStatus
+import com.ziv.reminders.data.LEGO_KIT_HABIT_INSTANCE_ID
+import com.ziv.reminders.data.isEnabledDay
 import com.ziv.reminders.ui.exercise.GoalGreen
 import com.ziv.reminders.ui.exercise.StatusOrange
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -67,6 +71,7 @@ fun DashboardScreen(
     onOpenReadingStats: () -> Unit = {},
     onOpenTanakhStats: () -> Unit = {},
     onOpenCppWeeklyStats: () -> Unit = {},
+    onOpenLegoKitStats: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val coroutineScope = rememberCoroutineScope()
@@ -144,11 +149,18 @@ fun DashboardScreen(
                             }
                         }
                     },
+                    onIncrementLegoKit = {
+                        coroutineScope.launch { viewModel.onIncrement(habit.instanceId) }
+                    },
+                    onUndoLegoKit = {
+                        coroutineScope.launch { viewModel.onUndoIncrement(habit.instanceId) }
+                    },
                     onOpenExercise = onOpenExercise,
                     onOpenExerciseStats = onOpenExerciseStats,
                     onOpenReadingStats = onOpenReadingStats,
                     onOpenTanakhStats = onOpenTanakhStats,
                     onOpenCppWeeklyStats = onOpenCppWeeklyStats,
+                    onOpenLegoKitStats = onOpenLegoKitStats,
                 )
                 Spacer(Modifier.height(8.dp))
             }
@@ -165,14 +177,21 @@ private fun HabitRow(
     fetchReadingSessionCountToday: suspend () -> Int,
     onMarkRead: () -> Unit,
     onMarkNextWatched: () -> Unit,
+    onIncrementLegoKit: () -> Unit,
+    onUndoLegoKit: () -> Unit,
     onOpenExercise: () -> Unit,
     onOpenExerciseStats: () -> Unit,
     onOpenReadingStats: () -> Unit,
     onOpenTanakhStats: () -> Unit,
     onOpenCppWeeklyStats: () -> Unit,
+    onOpenLegoKitStats: () -> Unit,
 ) {
     when (habit.status) {
-        is HabitStatus.CounterStatus -> CounterHabitRow(habit, habit.status, onIncrement, onOpenExercise, onOpenExerciseStats)
+        is HabitStatus.CounterStatus -> if (isLegoKitRow(habit.instanceId)) {
+            LegoKitHabitRow(habit, habit.status, onIncrementLegoKit, onUndoLegoKit, onOpenLegoKitStats)
+        } else {
+            CounterHabitRow(habit, habit.status, onIncrement, onOpenExercise, onOpenExerciseStats)
+        }
         is HabitStatus.TimerStatus -> TimerHabitRow(habit, habit.status, onToggleTimer, onResetReadingToday, fetchReadingSessionCountToday, onOpenReadingStats)
         is HabitStatus.ScheduleCursorStatus -> ScheduleCursorHabitRow(habit, habit.status, onMarkRead, onOpenTanakhStats)
         is HabitStatus.ComputedScheduleStatus -> ComputedScheduleHabitRow(habit, habit.status, onMarkNextWatched, onOpenCppWeeklyStats)
@@ -185,6 +204,12 @@ private fun HabitRow(
 // shouldNavigateToExerciseDetail: it no longer gates tap-navigation (short-tap is now a pure
 // increment for every Counter-kind habit) — it gates long-press-menu eligibility instead.
 fun hasExerciseDetailMenu(instanceId: Long): Boolean = instanceId == EXERCISE_HABIT_INSTANCE_ID
+
+// Same "dispatch by ID, not by shared HabitKind" rule as hasExerciseDetailMenu above — Lego Kit
+// is also a COUNTER-kind habit (shares HabitStatus.CounterStatus), so it must not fall through
+// to CounterHabitRow's always-tappable, never-dimmed rendering just because the status type
+// matches (see DashboardDispatchTest).
+fun isLegoKitRow(instanceId: Long): Boolean = instanceId == LEGO_KIT_HABIT_INSTANCE_ID
 
 // Small, deliberately generic long-press menu mechanism — a row supplies a title and a list of
 // labeled actions, this renders them as an AlertDialog with one button per option plus Cancel.
@@ -284,6 +309,77 @@ private fun CounterHabitRow(
                 RowMenuOption("Counter", onOpenExercise),
                 RowMenuOption("Statistics", onOpenExerciseStats),
             ),
+            onDismiss = { showMenu = false },
+        )
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun LegoKitHabitRow(
+    habit: HabitRowUiState,
+    status: HabitStatus.CounterStatus,
+    onIncrement: () -> Unit,
+    onUndo: () -> Unit,
+    onOpenStats: () -> Unit,
+) {
+    var showMenu by remember { mutableStateOf(false) }
+    val today = LocalDate.now()
+    val isEnabledToday = isEnabledDay(today, habit.enabledDaysMask)
+    val isDimmed = status.completed || !isEnabledToday
+
+    // Tap is a no-op once already completed today or on a day this habit isn't enabled — the
+    // "disables until the next day" behavior the design doc committed to. No transient Snackbar
+    // here (unlike CounterHabitRow's onIncrement) — Undo lives in the long-press menu instead,
+    // so there's exactly one Undo affordance, not two competing ones.
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .alpha(if (isDimmed) 0.5f else 1f)
+            .combinedClickable(
+                onClick = { if (!status.completed && isEnabledToday) onIncrement() },
+                onLongClick = { showMenu = true },
+            ),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Image(painter = painterResource(R.drawable.ic_habit_legokit), contentDescription = null, modifier = Modifier.size(40.dp))
+            // Design review finding: red is reserved everywhere else in this codebase for
+            // "behind schedule, needs attention" (ScheduleCursorHabitRow/ComputedScheduleHabitRow
+            // both only use error-red for a real dueCount). Lego Kit is the first row that dims
+            // for a SCHEDULE reason (off-day), not just a completion reason — reusing the plain
+            // completed/error binary here would show a red dot on a dimmed, non-actionable
+            // Friday row, reading as "overdue" rather than "not today."
+            HabitStatusDot(
+                color = when {
+                    status.completed -> GoalGreen
+                    !isEnabledToday -> MaterialTheme.colorScheme.outline
+                    else -> MaterialTheme.colorScheme.error
+                },
+            )
+            Column {
+                Text(habit.name, style = MaterialTheme.typography.bodyLarge)
+                Text("Streak: ${habit.streak}d", style = MaterialTheme.typography.bodySmall)
+            }
+        }
+        Text(
+            text = when {
+                status.completed -> "✓ Added"
+                !isEnabledToday -> "Not today"
+                else -> "Add one kit"
+            },
+            style = MaterialTheme.typography.titleMedium,
+        )
+    }
+
+    if (showMenu) {
+        RowLongPressMenu(
+            title = habit.name,
+            options = buildList {
+                add(RowMenuOption("Statistics", onOpenStats))
+                if (status.completed) add(RowMenuOption("Undo", onUndo))
+            },
             onDismiss = { showMenu = false },
         )
     }
