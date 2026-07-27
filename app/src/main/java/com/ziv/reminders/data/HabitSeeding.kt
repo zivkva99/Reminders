@@ -1,6 +1,7 @@
 package com.ziv.reminders.data
 
 import android.util.Log
+import java.time.LocalDate
 
 const val EXERCISE_HABIT_INSTANCE_ID = 1L
 const val READING_HABIT_INSTANCE_ID = 2L
@@ -20,7 +21,11 @@ const val GARDEN_HABIT_INSTANCE_ID = 6L
  * function — a later reseed on subsequent app starts must never reset the user's tap progress
  * back to 543.
  */
-suspend fun ensureHabitsSeeded(dao: HabitInstanceDao, computedScheduleProgressDao: ComputedScheduleProgressDao) {
+suspend fun ensureHabitsSeeded(
+    dao: HabitInstanceDao,
+    computedScheduleProgressDao: ComputedScheduleProgressDao,
+    intervalDueProgressDao: IntervalDueProgressDao,
+) {
     dao.insertIfAbsent(
         HabitInstance(
             id = EXERCISE_HABIT_INSTANCE_ID,
@@ -98,5 +103,19 @@ suspend fun ensureHabitsSeeded(dao: HabitInstanceDao, computedScheduleProgressDa
             notificationBody = "Add one Lego kit today?",
             counterGoal = 1,
         )
+    )
+    dao.insertIfAbsent(
+        HabitInstance(
+            id = GARDEN_HABIT_INSTANCE_ID,
+            kind = HabitKind.INTERVAL_DUE.name,
+            name = "Water the garden",
+            enabledDaysMask = 0b1111111, // unused by this kind (no day-of-week concept), all-days for consistency with other always-visible rows
+            notificationTitle = "Reminders",
+            notificationBody = "🌱 Time to water the garden!",
+            counterGoal = null,
+        )
+    )
+    intervalDueProgressDao.insertIfAbsent(
+        IntervalDueProgress(habitInstanceId = GARDEN_HABIT_INSTANCE_ID, nextDueDate = LocalDate.now().toString())
     )
 }
