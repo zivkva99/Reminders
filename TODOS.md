@@ -2,6 +2,49 @@
 
 ## Review
 
+### Lego Kit row: notification "Mark added" action button
+
+**What:** Add an inline action button to the Lego Kit reminder notification that marks today's
+kit added directly, without opening the app.
+
+**Why:** Removes a step from the most frictionless possible version of the reminder — see it,
+tap it, done.
+
+**Pros:** Matches what a truly frictionless reminder should feel like.
+
+**Cons:** No existing precedent in this codebase — every other habit kind's notification only
+opens the app on tap. This is genuinely new notification-action-button infrastructure (a
+`PendingIntent` wired to a `BroadcastReceiver` that mutates state directly), not a 30-minute
+touch — an identical TODO already exists for C++ Weekly for the same reason and is still open.
+
+**Context:** Surfaced during the `/autoplan` CEO review of the Lego Kit daily mission row plan
+(2026-07-27).
+
+**Effort:** M
+**Priority:** P3
+**Depends on:** None.
+
+---
+
+### App-wide: "new streak record" callout on habit stats screens
+
+**What:** Surface a "new record!" banner on a habit's Statistics screen when the current streak
+exceeds the previous best.
+
+**Why:** Small delight opportunity — `HabitStats` already computes an `isNewStreakRecord`-shaped
+concept internally for streak calculation; surfacing it visually would reward long streaks.
+
+**Context:** Surfaced during the `/autoplan` CEO review of the Lego Kit daily mission row plan
+(2026-07-27). Deliberately NOT built as part of that plan — none of the 4 existing stats screens
+(Exercise, Reading, Tanakh, C++ Weekly) have this either, so it's an app-wide candidate, not
+something to scope-creep into a single new row.
+
+**Effort:** S
+**Priority:** P4
+**Depends on:** None.
+
+---
+
 ### ActivityViewModelTest: wall-clock drift in refresh_populatesAllThreeSectionsAndComboStreak
 
 **What:** `ActivityViewModelTest.refresh_populatesAllThreeSectionsAndComboStreak` (in `app/src/test/java/com/ziv/reminders/ui/activity/ActivityViewModelTest.kt`) fails due to wall-clock date drift. `ActivityViewModel.refresh()` calls real `LocalDate.now()` directly with no injectable clock, while the test hardcodes `today = LocalDate.of(2026, 7, 19)`. As real time passes 2026-07-19, the test's fixture data (seeded against that hardcoded date) no longer lines up with what `refresh()` computes as "today," so the streak assertion fails.
