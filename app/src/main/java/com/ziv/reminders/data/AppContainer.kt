@@ -62,9 +62,12 @@ class AppContainer(context: Context) : DashboardDataSource, ExerciseDetailDataSo
             runInTransaction = { block -> db.withTransaction { block() } },
         )
     }
+    override val intervalDueRepository: IntervalDueRepository by lazy {
+        IntervalDueRepository(intervalDueProgressDao, intervalDueLogDao)
+    }
 
     override val habitEngine: HabitEngine by lazy {
-        HabitEngine(counterHabitRepository, timerHabitRepository, scheduleCursorRepository, computedScheduleRepository)
+        HabitEngine(counterHabitRepository, timerHabitRepository, scheduleCursorRepository, computedScheduleRepository, intervalDueRepository)
     }
     val crossHabitEvaluator: CrossHabitEvaluator by lazy { CrossHabitEvaluator(habitInstanceDao, habitEngine, evaluatorEscalationDao) }
     val habitScheduler: HabitScheduler by lazy { HabitScheduler(appContext) }
@@ -76,6 +79,7 @@ interface DashboardDataSource {
     val timerHabitRepository: TimerHabitRepository
     val scheduleCursorRepository: ScheduleCursorRepository
     val computedScheduleRepository: ComputedScheduleRepository
+    val intervalDueRepository: IntervalDueRepository
     val habitEngine: com.ziv.reminders.engine.HabitEngine
 }
 

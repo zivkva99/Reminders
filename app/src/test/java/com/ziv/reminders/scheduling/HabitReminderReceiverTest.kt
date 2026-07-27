@@ -63,6 +63,7 @@ class HabitReminderReceiverTest {
                 db.scheduleCursorProgressDao(), db.scheduleCursorDailyProgressDao(), emptyList(),
             ),
             com.ziv.reminders.data.ComputedScheduleRepository(db.computedScheduleProgressDao(), db.computedScheduleWatchLogDao()),
+            com.ziv.reminders.data.IntervalDueRepository(db.intervalDueProgressDao(), db.intervalDueLogDao()),
         )
         receiver.evaluatorEscalationDaoOverride = db.evaluatorEscalationDao()
         receiver.scopeOverride = CoroutineScope(StandardTestDispatcher(testScheduler))
@@ -99,6 +100,7 @@ class HabitReminderReceiverTest {
                 db.scheduleCursorProgressDao(), db.scheduleCursorDailyProgressDao(), emptyList(),
             ),
             com.ziv.reminders.data.ComputedScheduleRepository(db.computedScheduleProgressDao(), db.computedScheduleWatchLogDao()),
+            com.ziv.reminders.data.IntervalDueRepository(db.intervalDueProgressDao(), db.intervalDueLogDao()),
         )
         receiver.evaluatorEscalationDaoOverride = db.evaluatorEscalationDao()
         receiver.scopeOverride = CoroutineScope(StandardTestDispatcher(testScheduler))
@@ -133,6 +135,7 @@ class HabitReminderReceiverTest {
                 db.scheduleCursorProgressDao(), db.scheduleCursorDailyProgressDao(), emptyList(),
             ),
             com.ziv.reminders.data.ComputedScheduleRepository(db.computedScheduleProgressDao(), db.computedScheduleWatchLogDao()),
+            com.ziv.reminders.data.IntervalDueRepository(db.intervalDueProgressDao(), db.intervalDueLogDao()),
         )
         receiver.evaluatorEscalationDaoOverride = db.evaluatorEscalationDao()
         receiver.scopeOverride = CoroutineScope(StandardTestDispatcher(testScheduler))

@@ -5,6 +5,7 @@ import com.ziv.reminders.data.CounterHabitRepository
 import com.ziv.reminders.data.HabitInstance
 import com.ziv.reminders.data.HabitKind
 import com.ziv.reminders.data.HabitStatus
+import com.ziv.reminders.data.IntervalDueRepository
 import com.ziv.reminders.data.ScheduleCursorRepository
 import com.ziv.reminders.data.TimerHabitRepository
 import java.time.LocalDate
@@ -19,6 +20,7 @@ class HabitEngine(
     private val timerRepository: TimerHabitRepository,
     private val scheduleCursorRepository: ScheduleCursorRepository,
     private val computedScheduleRepository: ComputedScheduleRepository,
+    private val intervalDueRepository: IntervalDueRepository,
 ) {
 
     suspend fun todayStatus(instance: HabitInstance, today: LocalDate): HabitStatus =
@@ -27,6 +29,7 @@ class HabitEngine(
             HabitKind.TIMER.name -> timerRepository.todayStatus(instance, today)
             HabitKind.SCHEDULE_CURSOR.name -> scheduleCursorRepository.todayStatus(instance, today)
             HabitKind.COMPUTED_SCHEDULE.name -> computedScheduleRepository.todayStatus(instance, today)
+            HabitKind.INTERVAL_DUE.name -> intervalDueRepository.todayStatus(instance, today)
             else -> throw IllegalArgumentException("Unknown habit kind: ${instance.kind}")
         }
 
@@ -36,6 +39,14 @@ class HabitEngine(
             HabitKind.TIMER.name -> timerRepository.currentStreak(instance, today)
             HabitKind.SCHEDULE_CURSOR.name -> scheduleCursorRepository.currentStreak(instance, today)
             HabitKind.COMPUTED_SCHEDULE.name -> computedScheduleRepository.currentStreak(instance, today)
+            // Repurposes the generic per-row "streak" summary slot to carry total-times-watered
+            // instead — NOT a real streak (design doc Premise 3 still holds: no consecutive-day
+            // math for this kind). Added during /autoplan Design review: reuses the exact
+            // dashboard-refresh plumbing that already calls currentStreak() for every instance
+            // (DashboardViewModel.refresh), so the row's subtitle line (Task 3) gets a genuinely
+            // useful number at zero extra repository calls in the hot path, instead of the earlier
+            // draft's hardcoded 0 (which the row would've had nothing meaningful to show anyway).
+            HabitKind.INTERVAL_DUE.name -> intervalDueRepository.history(instance).size
             else -> throw IllegalArgumentException("Unknown habit kind: ${instance.kind}")
         }
 }

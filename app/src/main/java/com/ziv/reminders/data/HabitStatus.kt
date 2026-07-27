@@ -1,5 +1,7 @@
 package com.ziv.reminders.data
 
+import java.time.LocalDate
+
 /**
  * The one type unified across every kind — see HabitEngine (engine/HabitEngine.kt) for why only
  * the read path (todayStatus/currentStreak) is generic; each kind's own progress-marking action
@@ -34,5 +36,10 @@ sealed interface HabitStatus {
         val nextItemNumber: Int,
         val dueCount: Int,
         val isDueToday: Boolean,
+    ) : HabitStatus
+    data class IntervalDueStatus(
+        val dueDate: LocalDate,
+        val isDue: Boolean,
+        val completedToday: Boolean,
     ) : HabitStatus
 }

@@ -5,6 +5,7 @@ import com.ziv.reminders.data.AppDatabase
 import com.ziv.reminders.data.ComputedScheduleRepository
 import com.ziv.reminders.data.CounterHabitRepository
 import com.ziv.reminders.data.DashboardDataSource
+import com.ziv.reminders.data.IntervalDueRepository
 import com.ziv.reminders.data.ScheduleCursorRepository
 import com.ziv.reminders.data.ScheduleEntry
 import com.ziv.reminders.data.SystemClock
@@ -23,5 +24,6 @@ class TestAppContainer(db: AppDatabase, schedule: List<ScheduleEntry> = emptyLis
         db.computedScheduleProgressDao(), db.computedScheduleWatchLogDao(),
         runInTransaction = { block -> db.withTransaction { block() } },
     )
-    override val habitEngine = HabitEngine(counterHabitRepository, timerHabitRepository, scheduleCursorRepository, computedScheduleRepository)
+    override val intervalDueRepository = IntervalDueRepository(db.intervalDueProgressDao(), db.intervalDueLogDao())
+    override val habitEngine = HabitEngine(counterHabitRepository, timerHabitRepository, scheduleCursorRepository, computedScheduleRepository, intervalDueRepository)
 }

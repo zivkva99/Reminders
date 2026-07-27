@@ -10,6 +10,11 @@ import com.ziv.reminders.data.CounterDailyProgress
 import com.ziv.reminders.data.CounterDailyProgressDao
 import com.ziv.reminders.data.HabitInstance
 import com.ziv.reminders.data.HabitStatus
+import com.ziv.reminders.data.IntervalDueLog
+import com.ziv.reminders.data.IntervalDueLogDao
+import com.ziv.reminders.data.IntervalDueProgress
+import com.ziv.reminders.data.IntervalDueProgressDao
+import com.ziv.reminders.data.IntervalDueRepository
 import com.ziv.reminders.data.ScheduleCursorDailyProgress
 import com.ziv.reminders.data.ScheduleCursorDailyProgressDao
 import com.ziv.reminders.data.ScheduleCursorProgress
@@ -25,6 +30,8 @@ import java.time.LocalDate
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertIs
+import kotlin.test.assertTrue
 
 private class FakeCounterDailyProgressDao : CounterDailyProgressDao {
     val rows = mutableMapOf<Pair<Long, String>, CounterDailyProgress>()
@@ -73,6 +80,22 @@ private class FakeComputedScheduleWatchLogDao : ComputedScheduleWatchLogDao {
         rows.filter { it.habitInstanceId == habitInstanceId }.map { it.date }.distinct()
 }
 
+private class FakeIntervalDueProgressDao : IntervalDueProgressDao {
+    val rows = mutableMapOf<Long, IntervalDueProgress>()
+    override suspend fun getByInstance(habitInstanceId: Long) = rows[habitInstanceId]
+    override suspend fun upsert(progress: IntervalDueProgress) { rows[progress.habitInstanceId] = progress }
+    override suspend fun insertIfAbsent(progress: IntervalDueProgress) { rows.putIfAbsent(progress.habitInstanceId, progress) }
+}
+
+private class FakeIntervalDueLogDao : IntervalDueLogDao {
+    val rows = mutableListOf<IntervalDueLog>()
+    override suspend fun insert(log: IntervalDueLog) { rows.add(log.copy(id = rows.size + 1L)) }
+    override suspend fun getByDate(habitInstanceId: Long, date: String) =
+        rows.firstOrNull { it.habitInstanceId == habitInstanceId && it.date == date }
+    override suspend fun getAllForInstance(habitInstanceId: Long) =
+        rows.filter { it.habitInstanceId == habitInstanceId }.sortedWith(compareByDescending<IntervalDueLog> { it.date }.thenByDescending { it.id })
+}
+
 class HabitEngineTest {
 
     private val counterInstance = HabitInstance(
@@ -92,6 +115,10 @@ class HabitEngineTest {
         notificationTitle = "t", notificationBody = "b", counterGoal = null,
         anchorItemNumber = 542, anchorDate = "2026-07-14", intervalDays = 7,
     )
+    private val gardenInstance = HabitInstance(
+        id = 6L, kind = "INTERVAL_DUE", name = "Water the garden", enabledDaysMask = 0b1111111,
+        notificationTitle = "t", notificationBody = "b", counterGoal = null,
+    )
     private val schedule = listOf(ScheduleEntry("א", "א׳", LocalDate.of(2026, 7, 14)))
     private val today = LocalDate.of(2026, 7, 14)
 
@@ -100,6 +127,7 @@ class HabitEngineTest {
         TimerHabitRepository(FakeTimerDailyProgressDao(), SystemClock),
         ScheduleCursorRepository(FakeScheduleCursorProgressDao(), FakeScheduleCursorDailyProgressDao(), schedule),
         ComputedScheduleRepository(FakeComputedScheduleProgressDao(), FakeComputedScheduleWatchLogDao()),
+        IntervalDueRepository(FakeIntervalDueProgressDao(), FakeIntervalDueLogDao()),
     )
 
     @Test
@@ -118,6 +146,7 @@ class HabitEngineTest {
             TimerHabitRepository(FakeTimerDailyProgressDao(), SystemClock),
             ScheduleCursorRepository(FakeScheduleCursorProgressDao(), FakeScheduleCursorDailyProgressDao(), schedule),
             ComputedScheduleRepository(FakeComputedScheduleProgressDao(), FakeComputedScheduleWatchLogDao()),
+            IntervalDueRepository(FakeIntervalDueProgressDao(), FakeIntervalDueLogDao()),
         )
 
         assertEquals(1, engine.currentStreak(counterInstance, today))
@@ -139,6 +168,7 @@ class HabitEngineTest {
             TimerHabitRepository(timerDao, SystemClock),
             ScheduleCursorRepository(FakeScheduleCursorProgressDao(), FakeScheduleCursorDailyProgressDao(), schedule),
             ComputedScheduleRepository(FakeComputedScheduleProgressDao(), FakeComputedScheduleWatchLogDao()),
+            IntervalDueRepository(FakeIntervalDueProgressDao(), FakeIntervalDueLogDao()),
         )
 
         assertEquals(1, engine.currentStreak(timerInstance, today))
@@ -160,6 +190,7 @@ class HabitEngineTest {
             TimerHabitRepository(FakeTimerDailyProgressDao(), SystemClock),
             ScheduleCursorRepository(FakeScheduleCursorProgressDao(), dailyDao, schedule),
             ComputedScheduleRepository(FakeComputedScheduleProgressDao(), FakeComputedScheduleWatchLogDao()),
+            IntervalDueRepository(FakeIntervalDueProgressDao(), FakeIntervalDueLogDao()),
         )
 
         assertEquals(1, engine.currentStreak(scheduleCursorInstance, today))
@@ -194,6 +225,7 @@ class HabitEngineTest {
             TimerHabitRepository(FakeTimerDailyProgressDao(), SystemClock),
             ScheduleCursorRepository(FakeScheduleCursorProgressDao(), FakeScheduleCursorDailyProgressDao(), schedule),
             ComputedScheduleRepository(FakeComputedScheduleProgressDao(), watchLogDao),
+            IntervalDueRepository(FakeIntervalDueProgressDao(), FakeIntervalDueLogDao()),
         )
 
         assertEquals(2, engine.currentStreak(computedScheduleInstance, today))
@@ -204,5 +236,42 @@ class HabitEngineTest {
         val unknown = counterInstance.copy(kind = "SOMETHING_ELSE")
 
         assertFailsWith<IllegalArgumentException> { newEngine().todayStatus(unknown, today) }
+    }
+
+    @Test
+    fun todayStatus_intervalDueKind_dispatchesToIntervalDueRepository() = runTest {
+        // Guards the whole dashboard refresh path, not just this row (Eng review finding) — a
+        // regression here throws inside DashboardViewModel.refresh()'s per-instance map, before
+        // _uiState.value is ever assigned, silently breaking every habit row's display.
+        val progressDao = FakeIntervalDueProgressDao()
+        progressDao.rows[6L] = IntervalDueProgress(6L, nextDueDate = "2026-07-14")
+        val engine = HabitEngine(
+            CounterHabitRepository(FakeCounterDailyProgressDao()),
+            TimerHabitRepository(FakeTimerDailyProgressDao(), SystemClock),
+            ScheduleCursorRepository(FakeScheduleCursorProgressDao(), FakeScheduleCursorDailyProgressDao(), schedule),
+            ComputedScheduleRepository(FakeComputedScheduleProgressDao(), FakeComputedScheduleWatchLogDao()),
+            IntervalDueRepository(progressDao, FakeIntervalDueLogDao()),
+        )
+
+        val status = engine.todayStatus(gardenInstance, today)
+
+        assertIs<HabitStatus.IntervalDueStatus>(status)
+        assertTrue((status as HabitStatus.IntervalDueStatus).isDue)
+    }
+
+    @Test
+    fun currentStreak_intervalDueKind_dispatchesToIntervalDueRepositoryHistorySize() = runTest {
+        val logDao = FakeIntervalDueLogDao()
+        logDao.rows += IntervalDueLog(1L, 6L, "2026-07-10")
+        logDao.rows += IntervalDueLog(2L, 6L, "2026-07-13")
+        val engine = HabitEngine(
+            CounterHabitRepository(FakeCounterDailyProgressDao()),
+            TimerHabitRepository(FakeTimerDailyProgressDao(), SystemClock),
+            ScheduleCursorRepository(FakeScheduleCursorProgressDao(), FakeScheduleCursorDailyProgressDao(), schedule),
+            ComputedScheduleRepository(FakeComputedScheduleProgressDao(), FakeComputedScheduleWatchLogDao()),
+            IntervalDueRepository(FakeIntervalDueProgressDao(), logDao),
+        )
+
+        assertEquals(2, engine.currentStreak(gardenInstance, today))
     }
 }

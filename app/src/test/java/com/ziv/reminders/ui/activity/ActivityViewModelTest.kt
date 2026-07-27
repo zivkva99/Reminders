@@ -11,6 +11,11 @@ import com.ziv.reminders.data.CounterHabitRepository
 import com.ziv.reminders.data.EXERCISE_HABIT_INSTANCE_ID
 import com.ziv.reminders.data.HabitInstance
 import com.ziv.reminders.data.HabitInstanceDao
+import com.ziv.reminders.data.IntervalDueLog
+import com.ziv.reminders.data.IntervalDueLogDao
+import com.ziv.reminders.data.IntervalDueProgress
+import com.ziv.reminders.data.IntervalDueProgressDao
+import com.ziv.reminders.data.IntervalDueRepository
 import com.ziv.reminders.data.READING_HABIT_INSTANCE_ID
 import com.ziv.reminders.data.ReadingSessionLog
 import com.ziv.reminders.data.SystemClock
@@ -51,6 +56,20 @@ private class FakeComputedScheduleWatchLogDaoForActivityTest : ComputedScheduleW
     override suspend fun getWatchedDates(habitInstanceId: Long): List<String> = emptyList()
 }
 
+// Same reasoning as the ComputedSchedule fakes above — ActivityDataSource doesn't expose
+// intervalDueRepository either, but HabitEngine's constructor now requires one regardless.
+private class FakeIntervalDueProgressDaoForActivityTest : IntervalDueProgressDao {
+    override suspend fun getByInstance(habitInstanceId: Long): IntervalDueProgress? = null
+    override suspend fun upsert(progress: IntervalDueProgress) {}
+    override suspend fun insertIfAbsent(progress: IntervalDueProgress) {}
+}
+
+private class FakeIntervalDueLogDaoForActivityTest : IntervalDueLogDao {
+    override suspend fun insert(log: IntervalDueLog) {}
+    override suspend fun getByDate(habitInstanceId: Long, date: String): IntervalDueLog? = null
+    override suspend fun getAllForInstance(habitInstanceId: Long): List<IntervalDueLog> = emptyList()
+}
+
 @OptIn(ExperimentalCoroutinesApi::class)
 class ActivityViewModelTest {
 
@@ -77,7 +96,8 @@ class ActivityViewModelTest {
         val computedScheduleRepo = ComputedScheduleRepository(
             FakeComputedScheduleProgressDaoForActivityTest(), FakeComputedScheduleWatchLogDaoForActivityTest(),
         )
-        val engine = HabitEngine(counterRepo, timerRepo, cursorRepo, computedScheduleRepo)
+        val intervalDueRepo = IntervalDueRepository(FakeIntervalDueProgressDaoForActivityTest(), FakeIntervalDueLogDaoForActivityTest())
+        val engine = HabitEngine(counterRepo, timerRepo, cursorRepo, computedScheduleRepo, intervalDueRepo)
         val dao = FakeHabitInstanceDao(mapOf(EXERCISE_HABIT_INSTANCE_ID to exercise, READING_HABIT_INSTANCE_ID to reading, TANAKH_HABIT_INSTANCE_ID to tanakh))
         return object : ActivityDataSource {
             override val habitInstanceDao = dao

@@ -60,6 +60,18 @@ private class FakeComputedScheduleWatchLogDaoForCrossHabit : ComputedScheduleWat
     override suspend fun getWatchedDates(habitInstanceId: Long): List<String> = emptyList()
 }
 
+private class FakeIntervalDueProgressDaoForCrossHabit : IntervalDueProgressDao {
+    override suspend fun getByInstance(habitInstanceId: Long): IntervalDueProgress? = null
+    override suspend fun upsert(progress: IntervalDueProgress) {}
+    override suspend fun insertIfAbsent(progress: IntervalDueProgress) {}
+}
+
+private class FakeIntervalDueLogDaoForCrossHabit : IntervalDueLogDao {
+    override suspend fun insert(log: IntervalDueLog) {}
+    override suspend fun getByDate(habitInstanceId: Long, date: String): IntervalDueLog? = null
+    override suspend fun getAllForInstance(habitInstanceId: Long): List<IntervalDueLog> = emptyList()
+}
+
 class CrossHabitEvaluatorTest {
 
     private val exercise = HabitInstance(
@@ -83,6 +95,7 @@ class CrossHabitEvaluatorTest {
             TimerHabitRepository(timerDao, SystemClock),
             ScheduleCursorRepository(FakeScheduleCursorProgressDaoForCrossHabit(), FakeScheduleCursorDailyProgressDaoForCrossHabit(), emptyList()),
             ComputedScheduleRepository(FakeComputedScheduleProgressDaoForCrossHabit(), FakeComputedScheduleWatchLogDaoForCrossHabit()),
+            IntervalDueRepository(FakeIntervalDueProgressDaoForCrossHabit(), FakeIntervalDueLogDaoForCrossHabit()),
         )
         return CrossHabitEvaluator(instanceDao, engine, escalationDao)
     }

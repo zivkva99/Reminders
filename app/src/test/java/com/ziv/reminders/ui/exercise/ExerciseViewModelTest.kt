@@ -17,6 +17,11 @@ import com.ziv.reminders.data.ExerciseSubCounterProgress
 import com.ziv.reminders.data.ExerciseSubCounterProgressDao
 import com.ziv.reminders.data.HabitInstance
 import com.ziv.reminders.data.HabitInstanceDao
+import com.ziv.reminders.data.IntervalDueLog
+import com.ziv.reminders.data.IntervalDueLogDao
+import com.ziv.reminders.data.IntervalDueProgress
+import com.ziv.reminders.data.IntervalDueProgressDao
+import com.ziv.reminders.data.IntervalDueRepository
 import com.ziv.reminders.data.ScheduleCursorDailyProgress
 import com.ziv.reminders.data.ScheduleCursorDailyProgressDao
 import com.ziv.reminders.data.ScheduleCursorProgress
@@ -94,6 +99,18 @@ private class FakeComputedScheduleWatchLogDao : ComputedScheduleWatchLogDao {
     override suspend fun getWatchedDates(habitInstanceId: Long): List<String> = emptyList()
 }
 
+private class FakeIntervalDueProgressDao : IntervalDueProgressDao {
+    override suspend fun getByInstance(habitInstanceId: Long): IntervalDueProgress? = null
+    override suspend fun upsert(progress: IntervalDueProgress) {}
+    override suspend fun insertIfAbsent(progress: IntervalDueProgress) {}
+}
+
+private class FakeIntervalDueLogDao : IntervalDueLogDao {
+    override suspend fun insert(log: IntervalDueLog) {}
+    override suspend fun getByDate(habitInstanceId: Long, date: String): IntervalDueLog? = null
+    override suspend fun getAllForInstance(habitInstanceId: Long): List<IntervalDueLog> = emptyList()
+}
+
 private class FakeExerciseDetailDataSource(
     private val instanceDao: FakeHabitInstanceDao,
     counterDao: FakeCounterDailyProgressDao,
@@ -106,6 +123,7 @@ private class FakeExerciseDetailDataSource(
         TimerHabitRepository(FakeTimerDailyProgressDao(), SystemClock),
         ScheduleCursorRepository(FakeScheduleCursorProgressDao(), FakeScheduleCursorDailyProgressDao(), emptyList()),
         ComputedScheduleRepository(FakeComputedScheduleProgressDao(), FakeComputedScheduleWatchLogDao()),
+        IntervalDueRepository(FakeIntervalDueProgressDao(), FakeIntervalDueLogDao()),
     )
     override val subCounterRepository = SubCounterRepository(subCounterDao)
 }

@@ -82,6 +82,7 @@ class HabitReminderReceiver : BroadcastReceiver() {
                     // though no user action produced it. dueCount >= 1 (something new to watch)
                     // is the only case that should ever fire this habit's reminder.
                     is HabitStatus.ComputedScheduleStatus -> status.dueCount == 0
+                    is HabitStatus.IntervalDueStatus -> status.completedToday
                 }
                 val alreadyEscalatedToday = escalationDao.getByDate(habitInstanceId, today().toString())?.escalated == true
                 if (!completed && !alreadyEscalatedToday) {
