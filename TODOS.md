@@ -2,6 +2,41 @@
 
 ## Review
 
+### Parameterize per-instance stats screens/dashboard wiring instead of one bespoke set per instance
+
+**What:** `DashboardScreen`'s `HabitRow` carries one `onOpenXStats: () -> Unit` parameter per
+*instance* (not per kind), and each instance gets its own hand-wired NavHost route
+(`exerciseStats`/`readingStats`/`tanakhStats`/`cppWeeklyStats`/`legoKitStats`/`gardenStats`) and,
+where a kind is reused across instances, an ad hoc instance-ID branch (`isLegoKitRow`,
+`hasExerciseDetailMenu`) to avoid two instances of the same `HabitKind` sharing the wrong UI.
+Consider a single `habitInstanceId`-parameterized stats route + one shared ViewModel instead.
+
+**Why:** Surfaced by an independent `/autoplan` CEO review voice during the garden-watering
+reminder plan's review (2026-07-27): this is now the 5th consecutive habit-kind/instance addition
+paying this exact one-off wiring cost in full, several on the same day. The "no second use case
+yet" YAGNI argument that correctly justified not generalizing the first 1-2 times is weaker at
+the 5th repetition with no sign of slowing — the recurring cost is now measurable, not
+hypothetical.
+
+**Pros:** A future 6th habit instance could add its stats screen with one NavHost route and zero
+new `DashboardScreen`/`HabitRow` parameters, instead of another full callback-threading pass.
+
+**Cons:** Real generalization work now (a parameterized route + shared ViewModel over
+`DashboardDataSource`, replacing 6 near-identical dedicated ViewModels), and this exact
+"generalize now vs. wait for a clearer signal" tradeoff was already argued the other way twice
+before in this file (see completed items) — not a free decision, a real one.
+
+**Context:** Surfaced during the `/autoplan` CEO review of the garden-watering reminder
+(`INTERVAL_DUE` kind) plan (2026-07-27). Not built as part of that plan — it doesn't block the
+garden-watering feature, and the independent reviewer's own recommendation was to document the
+recurring cost, not to refactor mid-flight on an unrelated plan.
+
+**Effort:** M
+**Priority:** P3
+**Depends on:** None — actionable whenever the recurring cost is judged worth paying down.
+
+---
+
 ### Lego Kit row: notification "Mark added" action button
 
 **What:** Add an inline action button to the Lego Kit reminder notification that marks today's
