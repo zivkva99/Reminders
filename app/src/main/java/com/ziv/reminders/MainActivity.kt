@@ -25,6 +25,8 @@ import com.ziv.reminders.ui.dashboard.ComputedScheduleStatsScreen
 import com.ziv.reminders.ui.dashboard.ComputedScheduleStatsViewModel
 import com.ziv.reminders.ui.dashboard.DashboardScreen
 import com.ziv.reminders.ui.dashboard.DashboardViewModel
+import com.ziv.reminders.ui.dashboard.LegoKitStatsScreen
+import com.ziv.reminders.ui.dashboard.LegoKitStatsViewModel
 import com.ziv.reminders.ui.exercise.ExerciseCounterScreen
 import com.ziv.reminders.ui.exercise.ExerciseViewModel
 import com.ziv.reminders.ui.exercise.ExerciseStatsScreen
@@ -48,6 +50,8 @@ class MainActivity : ComponentActivity() {
                 val activityViewModel: ActivityViewModel = viewModel(factory = ActivityViewModel.factory(container))
                 val computedScheduleStatsViewModel: ComputedScheduleStatsViewModel =
                     viewModel(factory = ComputedScheduleStatsViewModel.factory(container))
+                val legoKitStatsViewModel: LegoKitStatsViewModel =
+                    viewModel(factory = LegoKitStatsViewModel.factory(container))
 
                 NavHost(navController = navController, startDestination = "dashboard") {
                     composable("dashboard") {
@@ -63,6 +67,7 @@ class MainActivity : ComponentActivity() {
                             onOpenReadingStats = { navController.navigate("readingStats") },
                             onOpenTanakhStats = { navController.navigate("tanakhStats") },
                             onOpenCppWeeklyStats = { navController.navigate("cppWeeklyStats") },
+                            onOpenLegoKitStats = { navController.navigate("legoKitStats") },
                         )
                     }
                     composable("exerciseCounter") {
@@ -99,6 +104,12 @@ class MainActivity : ComponentActivity() {
                     composable("cppWeeklyStats") {
                         ComputedScheduleStatsScreen(
                             viewModel = computedScheduleStatsViewModel,
+                            onBack = { navController.popBackStack() },
+                        )
+                    }
+                    composable("legoKitStats") {
+                        LegoKitStatsScreen(
+                            viewModel = legoKitStatsViewModel,
                             onBack = { navController.popBackStack() },
                         )
                     }
