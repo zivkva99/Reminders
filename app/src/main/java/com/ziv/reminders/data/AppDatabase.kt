@@ -11,8 +11,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         ScheduleCursorProgress::class, ScheduleCursorDailyProgress::class,
         EvaluatorEscalation::class, ExerciseSubCounterProgress::class, ReadingSessionLog::class,
         ComputedScheduleProgress::class, ComputedScheduleWatchLog::class,
+        IntervalDueProgress::class, IntervalDueLog::class,
     ],
-    version = 7,
+    version = 8,
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun habitInstanceDao(): HabitInstanceDao
@@ -25,6 +26,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun readingSessionLogDao(): ReadingSessionLogDao
     abstract fun computedScheduleProgressDao(): ComputedScheduleProgressDao
     abstract fun computedScheduleWatchLogDao(): ComputedScheduleWatchLogDao
+    abstract fun intervalDueProgressDao(): IntervalDueProgressDao
+    abstract fun intervalDueLogDao(): IntervalDueLogDao
 
     companion object {
         /** Adds Timer-with-duration kind support — see Plan 2. */
@@ -138,6 +141,34 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL(
                     "CREATE INDEX IF NOT EXISTS `index_computed_schedule_watch_log_habitInstanceId_date` " +
                         "ON `computed_schedule_watch_log` (`habitInstanceId`, `date`)"
+                )
+            }
+        }
+
+        /** Adds INTERVAL_DUE kind support: a per-instance running due-date table (mirrors
+         * schedule_cursor_progress/computed_schedule_progress's single-row shape) plus an
+         * append-only completion log (mirrors reading_session_log/computed_schedule_watch_log's
+         * autoincrement shape). No new habit_instance column — this kind's only "config" is the
+         * seeded initial due date, written directly into interval_due_progress at seed time (see
+         * Global Constraints — do not confuse with the existing intervalDays column, which is
+         * ComputedSchedule's unrelated fixed cadence). Never fallbackToDestructiveMigration(). */
+        val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `interval_due_progress` (" +
+                        "`habitInstanceId` INTEGER NOT NULL, `nextDueDate` TEXT NOT NULL, " +
+                        "PRIMARY KEY(`habitInstanceId`))"
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `interval_due_log` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `habitInstanceId` INTEGER NOT NULL, " +
+                        "`date` TEXT NOT NULL)"
+                )
+                // Matches IntervalDueLogDao's WHERE habitInstanceId = ... AND date = ... access
+                // pattern — same index shape as reading_session_log/computed_schedule_watch_log.
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_interval_due_log_habitInstanceId_date` " +
+                        "ON `interval_due_log` (`habitInstanceId`, `date`)"
                 )
             }
         }

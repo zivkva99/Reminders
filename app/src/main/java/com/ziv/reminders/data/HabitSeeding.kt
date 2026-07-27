@@ -7,6 +7,7 @@ const val READING_HABIT_INSTANCE_ID = 2L
 const val TANAKH_HABIT_INSTANCE_ID = 3L
 const val CPP_WEEKLY_HABIT_INSTANCE_ID = 4L
 const val LEGO_KIT_HABIT_INSTANCE_ID = 5L
+const val GARDEN_HABIT_INSTANCE_ID = 6L
 
 /**
  * Idempotent — safe to call on every app startup (RemindersApp.onCreate). insertIfAbsent's

@@ -10,4 +10,5 @@ enum class HabitKind {
     TIMER,
     SCHEDULE_CURSOR,
     COMPUTED_SCHEDULE,
+    INTERVAL_DUE,
 }

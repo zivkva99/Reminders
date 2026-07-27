@@ -16,7 +16,7 @@ class AppContainer(context: Context) : DashboardDataSource, ExerciseDetailDataSo
             .addMigrations(
                 AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3,
                 AppDatabase.MIGRATION_3_4, AppDatabase.MIGRATION_4_5, AppDatabase.MIGRATION_5_6,
-                AppDatabase.MIGRATION_6_7,
+                AppDatabase.MIGRATION_6_7, AppDatabase.MIGRATION_7_8,
             )
             .build()
     }
@@ -31,6 +31,8 @@ class AppContainer(context: Context) : DashboardDataSource, ExerciseDetailDataSo
     val readingSessionLogDao get() = db.readingSessionLogDao()
     val computedScheduleProgressDao get() = db.computedScheduleProgressDao()
     val computedScheduleWatchLogDao get() = db.computedScheduleWatchLogDao()
+    val intervalDueProgressDao get() = db.intervalDueProgressDao()
+    val intervalDueLogDao get() = db.intervalDueLogDao()
     override val counterHabitRepository: CounterHabitRepository by lazy { CounterHabitRepository(counterDailyProgressDao) }
     override val timerHabitRepository: TimerHabitRepository by lazy {
         TimerHabitRepository(
