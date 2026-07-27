@@ -1152,7 +1152,13 @@ private fun IntervalDuePickerDialog(
         title = { Text(title) },
         text = {
             Column {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                // horizontalScroll — found during on-device verification (Task 5 Step 5): 5 chips
+                // don't fit the dialog's width, which compressed the last chip and wrapped "14"
+                // onto two lines instead of shrinking the Row itself.
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.horizontalScroll(rememberScrollState()),
+                ) {
                     listOf(3, 5, 7, 10, 14).forEach { preset ->
                         AssistChip(onClick = { text = preset.toString() }, label = { Text("$preset") })
                     }

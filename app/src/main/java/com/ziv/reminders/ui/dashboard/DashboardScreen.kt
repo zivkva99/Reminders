@@ -5,6 +5,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -683,7 +685,13 @@ private fun IntervalDuePickerDialog(
         title = { Text(title) },
         text = {
             Column {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                // horizontalScroll — on-device testing found 5 chips don't fit the dialog's
+                // width, which compressed the last chip and wrapped "14" onto two lines instead
+                // of shrinking the Row itself.
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.horizontalScroll(rememberScrollState()),
+                ) {
                     listOf(3, 5, 7, 10, 14).forEach { preset ->
                         AssistChip(onClick = { text = preset.toString() }, label = { Text("$preset") })
                     }
