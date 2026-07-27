@@ -1,0 +1,12 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Placeholder only (design doc Premise 6 — icon artwork explicitly non-blocking) — a green
+         watering-can silhouette, standing in until a real icon is swapped in. Swapping this file
+         later has zero code impact. -->
+    <path android:fillColor="#2E7D32" android:pathData="M20,50 h40 a10,10 0 0 1 10,10 v10 a10,10 0 0 1 -10,10 h-40 a10,10 0 0 1 -10,-10 v-10 a10,10 0 0 1 10,-10 Z"/>
+    <path android:fillColor="#2E7D32" android:pathData="M70,55 l24,-14 a6,6 0 0 1 9,5.2 v17.6 a6,6 0 0 1 -9,5.2 l-24,-14 Z"/>
+    <path android:fillColor="#2E7D32" android:pathData="M30,50 v-14 a6,6 0 0 1 6,-6 h8 a6,6 0 0 1 6,6 v14 Z"/>
+</vector>

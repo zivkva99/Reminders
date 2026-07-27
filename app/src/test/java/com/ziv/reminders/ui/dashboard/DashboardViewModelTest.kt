@@ -419,4 +419,52 @@ class DashboardViewModelTest {
 
         db.close()
     }
+
+    @Test
+    fun onMarkDone_advancesDueDateAndLogsToday() = runTest {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java)
+            .setQueryCoroutineContext(StandardTestDispatcher(testScheduler))
+            .build()
+        db.habitInstanceDao().insertIfAbsent(
+            HabitInstance(6L, "INTERVAL_DUE", "Water the garden", 0b1111111, "t", "b", null)
+        )
+        db.intervalDueProgressDao().insertIfAbsent(
+            com.ziv.reminders.data.IntervalDueProgress(habitInstanceId = 6L, nextDueDate = java.time.LocalDate.now().minusDays(2).toString())
+        )
+        val viewModel = DashboardViewModel(TestAppContainer(db))
+        viewModel.refresh()
+        testScheduler.advanceUntilIdle()
+
+        viewModel.onMarkDone(6L, intervalDays = 4)
+        testScheduler.advanceUntilIdle()
+
+        val status = viewModel.uiState.value.habits[0].status as HabitStatus.IntervalDueStatus
+        assertFalse(status.isDue)
+        assertTrue(status.completedToday)
+
+        db.close()
+    }
+
+    @Test
+    fun onRescheduleOnly_updatesDueDate_withoutLoggingACompletion() = runTest {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java)
+            .setQueryCoroutineContext(StandardTestDispatcher(testScheduler))
+            .build()
+        db.habitInstanceDao().insertIfAbsent(
+            HabitInstance(6L, "INTERVAL_DUE", "Water the garden", 0b1111111, "t", "b", null)
+        )
+        val viewModel = DashboardViewModel(TestAppContainer(db))
+        viewModel.refresh()
+        testScheduler.advanceUntilIdle()
+
+        viewModel.onRescheduleOnly(6L, intervalDays = 3)
+        testScheduler.advanceUntilIdle()
+
+        val status = viewModel.uiState.value.habits[0].status as HabitStatus.IntervalDueStatus
+        assertFalse(status.completedToday)
+
+        db.close()
+    }
 }

@@ -5,6 +5,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,11 +20,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
@@ -47,6 +50,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
@@ -72,6 +76,7 @@ fun DashboardScreen(
     onOpenTanakhStats: () -> Unit = {},
     onOpenCppWeeklyStats: () -> Unit = {},
     onOpenLegoKitStats: () -> Unit = {},
+    onOpenGardenStats: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val coroutineScope = rememberCoroutineScope()
@@ -155,12 +160,25 @@ fun DashboardScreen(
                     onUndoLegoKit = {
                         coroutineScope.launch { viewModel.onUndoIncrement(habit.instanceId) }
                     },
+                    onMarkDone = { intervalDays ->
+                        coroutineScope.launch {
+                            viewModel.onMarkDone(habit.instanceId, intervalDays)
+                            snackbarHostState.showSnackbar(message = "Watered!", duration = SnackbarDuration.Short)
+                        }
+                    },
+                    onRescheduleOnly = { intervalDays ->
+                        coroutineScope.launch {
+                            viewModel.onRescheduleOnly(habit.instanceId, intervalDays)
+                            snackbarHostState.showSnackbar(message = "Rescheduled", duration = SnackbarDuration.Short)
+                        }
+                    },
                     onOpenExercise = onOpenExercise,
                     onOpenExerciseStats = onOpenExerciseStats,
                     onOpenReadingStats = onOpenReadingStats,
                     onOpenTanakhStats = onOpenTanakhStats,
                     onOpenCppWeeklyStats = onOpenCppWeeklyStats,
                     onOpenLegoKitStats = onOpenLegoKitStats,
+                    onOpenGardenStats = onOpenGardenStats,
                 )
                 Spacer(Modifier.height(8.dp))
             }
@@ -185,6 +203,9 @@ private fun HabitRow(
     onOpenTanakhStats: () -> Unit,
     onOpenCppWeeklyStats: () -> Unit,
     onOpenLegoKitStats: () -> Unit,
+    onMarkDone: (Int) -> Unit,
+    onRescheduleOnly: (Int) -> Unit,
+    onOpenGardenStats: () -> Unit,
 ) {
     when (habit.status) {
         is HabitStatus.CounterStatus -> if (isLegoKitRow(habit.instanceId)) {
@@ -195,6 +216,7 @@ private fun HabitRow(
         is HabitStatus.TimerStatus -> TimerHabitRow(habit, habit.status, onToggleTimer, onResetReadingToday, fetchReadingSessionCountToday, onOpenReadingStats)
         is HabitStatus.ScheduleCursorStatus -> ScheduleCursorHabitRow(habit, habit.status, onMarkRead, onOpenTanakhStats)
         is HabitStatus.ComputedScheduleStatus -> ComputedScheduleHabitRow(habit, habit.status, onMarkNextWatched, onOpenCppWeeklyStats)
+        is HabitStatus.IntervalDueStatus -> IntervalDueHabitRow(habit, habit.status, onMarkDone, onRescheduleOnly, onOpenGardenStats)
     }
 }
 
@@ -642,3 +664,148 @@ private fun ComputedScheduleHabitRow(
         )
     }
 }
+
+@Composable
+private fun IntervalDuePickerDialog(
+    title: String,
+    onConfirm: (Int) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    // Preset chips for the common cases, plus free numeric entry for anything else — chips set
+    // the text field's value directly, so Confirm's enabled/disabled logic and the >= 1 guard
+    // apply uniformly regardless of how the value was entered. Confirm is disabled below 1,
+    // mirroring IntervalDueRepository's own require(intervalDays >= 1) guard — belt-and-suspenders,
+    // not a substitute for it (see Task 2).
+    var text by remember { mutableStateOf("") }
+    val parsed = text.toIntOrNull()
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(3, 5, 7, 10, 14).forEach { preset ->
+                        AssistChip(onClick = { text = preset.toString() }, label = { Text("$preset") })
+                    }
+                }
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it },
+                    label = { Text("Days") },
+                    // Explains why Confirm is disabled (design review Pass 2 finding — a
+                    // greyed-out button with no reason is a dead end, not a state).
+                    supportingText = { if (parsed == null || parsed < 1) Text("Enter at least 1 day") },
+                    isError = text.isNotEmpty() && (parsed == null || parsed < 1),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { parsed?.let(onConfirm) },
+                enabled = parsed != null && parsed >= 1,
+            ) { Text("Confirm") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun IntervalDueHabitRow(
+    habit: HabitRowUiState,
+    status: HabitStatus.IntervalDueStatus,
+    onMarkDone: (Int) -> Unit,
+    onRescheduleOnly: (Int) -> Unit,
+    onOpenGardenStats: () -> Unit,
+) {
+    var showMenu by remember { mutableStateOf(false) }
+    var showPicker by remember { mutableStateOf<PickerMode?>(null) }
+    val today = LocalDate.now()
+
+    // Design review finding (accepted): the first draft used a binary due/not-due dot, "matching
+    // Counter's convention" — the wrong analog. Counter's completed/not-completed is a same-day
+    // fact with no concept of accumulating lateness; this kind's due-ness accumulates exactly
+    // like Schedule-cursor/Computed-schedule's does (a plant overdue by 1 day and one overdue by
+    // 3 weeks must not render identically), so this row now follows THEIR 3-state convention
+    // instead: not-due (green) / due today (orange) / overdue (red, plus magnitude text) — not
+    // Counter's binary one. The math itself is delegated to a pure, unit-tested function (Eng
+    // review finding: this logic previously lived inline in the Composable with zero test
+    // coverage — an argument-order swap or off-by-one would have silently flipped "3 days
+    // overdue" into "in 3 days" with nothing to catch it).
+    val display = deriveIntervalDueRowDisplay(status.dueDate, today)
+    val dotColor = when (display.urgency) {
+        IntervalDueUrgency.OVERDUE -> MaterialTheme.colorScheme.error
+        IntervalDueUrgency.DUE_TODAY -> StatusOrange
+        IntervalDueUrgency.NOT_DUE -> GoalGreen
+    }
+    val statusText = display.statusText
+
+    // Short-press only when due (mirrors the "already completed today, tap disabled" precedent
+    // from other kinds, applied here to "not currently due"). Long-press's two reschedule options
+    // are deliberately NOT gated on due state, unlike short-press — a long-press is already an
+    // explicit "I want to do X" choice (the user opened a menu and picked an option), so it
+    // doesn't need the same "only when it makes sense" guard a single ambient tap does; someone
+    // may legitimately want to water early or push the date out before it's even due (design
+    // review Pass 4 finding — this asymmetry was previously present but unstated).
+    Row(
+        modifier = Modifier.fillMaxWidth().combinedClickable(
+            onClick = { if (status.isDue) showPicker = PickerMode.MARK_DONE },
+            onLongClick = { showMenu = true },
+        ),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Image(painter = painterResource(R.drawable.ic_habit_garden), contentDescription = null, modifier = Modifier.size(40.dp))
+            HabitStatusDot(color = dotColor)
+            Column {
+                Text(habit.name, style = MaterialTheme.typography.bodyLarge)
+                // Design review finding (accepted): the first draft had no subtitle at all — every
+                // other row's left block is icon+dot+Column(name, subtitle), and dropping the
+                // second line was an unconsidered gap, not a deliberate departure like the
+                // Statistics screen's no-streak choice is. habit.streak carries total-times-
+                // watered for this kind (see HabitEngine.currentStreak's INTERVAL_DUE branch,
+                // Task 2) — NOT a real streak, just the same generic per-row summary-count slot
+                // repurposed, at zero extra repository calls in the dashboard-refresh hot path.
+                Text("Watered ${habit.streak} time${if (habit.streak == 1) "" else "s"}", style = MaterialTheme.typography.bodySmall)
+            }
+        }
+        Text(text = statusText, style = MaterialTheme.typography.titleMedium)
+    }
+
+    if (showMenu) {
+        RowLongPressMenu(
+            title = habit.name,
+            // Ordering rationale (design review Pass 4 finding — previously undocumented):
+            // "Mark done + reschedule" stays first, matching Exercise's own [Counter, Statistics]
+            // ordering (primary action first) rather than Timer's [Statistics, Reset today]
+            // ordering (safe-action-first, destructive-last) — Timer's ordering exists specifically
+            // to protect against a habit-driven reflex tap landing on a DESTRUCTIVE action (data
+            // loss). None of this row's 3 options destroy data (mark-done/reschedule-only both
+            // just write a new due date; at most the log gets one extra row), so there's no
+            // destructive option to protect against here, and no option is marked isDestructive.
+            options = listOf(
+                RowMenuOption("Mark done + reschedule", onSelect = { showPicker = PickerMode.MARK_DONE }),
+                RowMenuOption("Reschedule only", onSelect = { showPicker = PickerMode.RESCHEDULE_ONLY }),
+                RowMenuOption("Statistics", onOpenGardenStats),
+            ),
+            onDismiss = { showMenu = false },
+        )
+    }
+
+    showPicker?.let { mode ->
+        IntervalDuePickerDialog(
+            title = if (mode == PickerMode.MARK_DONE) "Water again in how many days?" else "Reschedule to how many days from now?",
+            onConfirm = { days ->
+                showPicker = null
+                if (mode == PickerMode.MARK_DONE) onMarkDone(days) else onRescheduleOnly(days)
+            },
+            onDismiss = { showPicker = null },
+        )
+    }
+}
+
+private enum class PickerMode { MARK_DONE, RESCHEDULE_ONLY }

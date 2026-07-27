@@ -142,6 +142,18 @@ class DashboardViewModel(private val dataSource: DashboardDataSource) : ViewMode
         return dataSource.timerHabitRepository.sessionsForDate(instance, LocalDate.now()).size
     }
 
+    suspend fun onMarkDone(instanceId: Long, intervalDays: Int) {
+        val instance = dataSource.habitInstanceDao.getById(instanceId) ?: return
+        dataSource.intervalDueRepository.markDone(instance, intervalDays, LocalDate.now())
+        refresh()
+    }
+
+    suspend fun onRescheduleOnly(instanceId: Long, intervalDays: Int) {
+        val instance = dataSource.habitInstanceDao.getById(instanceId) ?: return
+        dataSource.intervalDueRepository.rescheduleOnly(instance, intervalDays, LocalDate.now())
+        refresh()
+    }
+
     companion object {
         fun factory(dataSource: DashboardDataSource): ViewModelProvider.Factory =
             object : ViewModelProvider.Factory {
