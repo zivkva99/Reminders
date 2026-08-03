@@ -19,14 +19,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.List
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -72,7 +68,6 @@ import java.time.LocalDate
 fun DashboardScreen(
     viewModel: DashboardViewModel,
     onOpenExercise: () -> Unit = {},
-    onOpenActivity: () -> Unit = {},
     onOpenExerciseStats: () -> Unit = {},
     onOpenReadingStats: () -> Unit = {},
     onOpenTanakhStats: () -> Unit = {},
@@ -90,14 +85,7 @@ fun DashboardScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Today") },
-                actions = {
-                    IconButton(onClick = onOpenActivity) {
-                        Icon(imageVector = Icons.Default.List, contentDescription = "Activity")
-                    }
-                },
-            )
+            TopAppBar(title = { Text("Today") })
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { innerPadding ->

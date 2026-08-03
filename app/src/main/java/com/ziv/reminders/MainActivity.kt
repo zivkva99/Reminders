@@ -17,7 +17,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.ziv.reminders.ui.activity.ActivityScreen
 import com.ziv.reminders.ui.activity.ActivityViewModel
 import com.ziv.reminders.ui.activity.ReadingStatsScreen
 import com.ziv.reminders.ui.activity.TanakhStatsScreen
@@ -60,13 +59,12 @@ class MainActivity : ComponentActivity() {
                 NavHost(navController = navController, startDestination = "dashboard") {
                     composable("dashboard") {
                         // Fires every time this destination re-enters composition —
-                        // including after popping back from the Exercise/Activity flows, not
+                        // including after popping back from the Exercise/Stats flows, not
                         // just on cold start — so the dashboard's rows never show stale data.
                         LaunchedEffect(Unit) { dashboardViewModel.refresh() }
                         DashboardScreen(
                             viewModel = dashboardViewModel,
                             onOpenExercise = { navController.navigate("exerciseCounter") },
-                            onOpenActivity = { navController.navigate("activity") },
                             onOpenExerciseStats = { navController.navigate("exerciseStats") },
                             onOpenReadingStats = { navController.navigate("readingStats") },
                             onOpenTanakhStats = { navController.navigate("tanakhStats") },
@@ -78,13 +76,6 @@ class MainActivity : ComponentActivity() {
                     composable("exerciseCounter") {
                         ExerciseCounterScreen(
                             viewModel = exerciseViewModel,
-                            onBack = { navController.popBackStack() },
-                        )
-                    }
-                    composable("activity") {
-                        ActivityScreen(
-                            activityViewModel = activityViewModel,
-                            exerciseViewModel = exerciseViewModel,
                             onBack = { navController.popBackStack() },
                         )
                     }
