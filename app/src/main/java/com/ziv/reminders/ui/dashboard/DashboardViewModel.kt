@@ -35,7 +35,10 @@ class DashboardViewModel(private val dataSource: DashboardDataSource) : ViewMode
                 val streak = dataSource.habitEngine.currentStreak(instance, today)
                 HabitRowUiState(instance.id, instance.name, status, streak, instance.enabledDaysMask)
             }
-            _uiState.value = DashboardUiState(habits = rows, isLoaded = true)
+            // Red (needs attention) first, then orange, then green last — sortedBy is stable, so
+            // rows within the same color keep their original (DB) relative order.
+            val sortedRows = rows.sortedBy { dashboardRowUrgency(it.instanceId, it.status, today, it.enabledDaysMask) }
+            _uiState.value = DashboardUiState(habits = sortedRows, isLoaded = true)
         }
     }
 

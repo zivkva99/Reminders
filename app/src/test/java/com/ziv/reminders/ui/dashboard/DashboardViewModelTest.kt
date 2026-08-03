@@ -447,6 +447,42 @@ class DashboardViewModelTest {
     }
 
     @Test
+    fun refresh_sortsRowsRedFirstThenOrangeThenGreen() = runTest {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java)
+            .setQueryCoroutineContext(StandardTestDispatcher(testScheduler))
+            .build()
+        // getAll() (no ORDER BY) returns rows in id order: 1, 2, 6 — id=1 (green) is first,
+        // ahead of both reds — so this only passes if refresh() actually reorders by urgency
+        // rather than just returning the DB's own order.
+        db.habitInstanceDao().insertIfAbsent(
+            HabitInstance(1L, "COUNTER", "Exercise", 0b1111111, "t", "b", counterGoal = 1)
+        ) // will be completed -> green
+        db.habitInstanceDao().insertIfAbsent(
+            HabitInstance(2L, "TIMER", "Reading", 0b1111111, "t", "b", null, timerTargetSeconds = 900)
+        ) // not completed -> red
+        db.habitInstanceDao().insertIfAbsent(
+            HabitInstance(6L, "INTERVAL_DUE", "Water the garden", 0b1111111, "t", "b", null)
+        ) // overdue -> red too
+        db.intervalDueProgressDao().insertIfAbsent(
+            com.ziv.reminders.data.IntervalDueProgress(habitInstanceId = 6L, nextDueDate = java.time.LocalDate.now().minusDays(2).toString())
+        )
+        val viewModel = DashboardViewModel(TestAppContainer(db))
+        viewModel.refresh()
+        testScheduler.advanceUntilIdle()
+
+        viewModel.onIncrement(1L)
+        testScheduler.advanceUntilIdle()
+
+        val order = viewModel.uiState.value.habits.map { it.instanceId }
+        // Both red rows (reading=2, garden=6) keep their original DB relative order (stable
+        // sort); green (exercise=1) sinks to the end instead of staying first.
+        assertEquals(listOf(2L, 6L, 1L), order)
+
+        db.close()
+    }
+
+    @Test
     fun onRescheduleOnly_updatesDueDate_withoutLoggingACompletion() = runTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java)

@@ -38,7 +38,7 @@ class ScheduleCursorRepositoryTest {
 
         val status = repo.todayStatus(instance, today = LocalDate.of(2026, 7, 12))
 
-        assertEquals(HabitStatus.ScheduleCursorStatus("א", "א׳", dueCount = 0, completed = false, finished = false, isDueToday = true), status)
+        assertEquals(HabitStatus.ScheduleCursorStatus("א", "א׳", dueCount = 0, completed = false, finished = false, isDueToday = true, entriesReadToday = 0), status)
     }
 
     @Test
@@ -84,6 +84,41 @@ class ScheduleCursorRepositoryTest {
         assertEquals(2, status.dueCount)
         assertFalse(status.finished)
         assertFalse(status.isDueToday)
+    }
+
+    // A schedule where the cursor starts 3 entries behind "today" — unlike the class-level
+    // `schedule` fixture (only 2 entries, one due tomorrow), this lets markRead be called twice
+    // on the same day without hitting the Waiting no-op guard (see
+    // markRead_caughtUpAndNextEntryNotYetDue_isANoOp above).
+    private val behindSchedule = listOf(
+        ScheduleEntry("א", "א׳", LocalDate.of(2026, 7, 10)),
+        ScheduleEntry("א", "ב׳", LocalDate.of(2026, 7, 11)),
+        ScheduleEntry("א", "ג׳", LocalDate.of(2026, 7, 12)),
+    )
+
+    @Test
+    fun todayStatus_afterTwoMarkReadsSameDay_reportsEntriesReadTodayOfTwo() = runTest {
+        val repo = ScheduleCursorRepository(FakeScheduleCursorProgressDao(), FakeScheduleCursorDailyProgressDao(), behindSchedule)
+        val today = LocalDate.of(2026, 7, 12)
+
+        repo.markRead(instance, today)
+        repo.markRead(instance, today)
+
+        assertEquals(2, repo.todayStatus(instance, today).entriesReadToday)
+    }
+
+    @Test
+    fun todayStatus_onANewDay_entriesReadTodayResetsToZero() = runTest {
+        // Same behavior this row's dot color relies on to flip back to red the day after a
+        // 2-chapter catch-up day — entriesReadToday is keyed by date, not a running total.
+        val repo = ScheduleCursorRepository(FakeScheduleCursorProgressDao(), FakeScheduleCursorDailyProgressDao(), behindSchedule)
+        val today = LocalDate.of(2026, 7, 12)
+        repo.markRead(instance, today)
+        repo.markRead(instance, today)
+
+        val status = repo.todayStatus(instance, today = LocalDate.of(2026, 7, 13))
+
+        assertEquals(0, status.entriesReadToday)
     }
 
     @Test

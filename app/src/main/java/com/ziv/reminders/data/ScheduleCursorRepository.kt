@@ -24,16 +24,18 @@ class ScheduleCursorRepository(
 
     suspend fun todayStatus(instance: HabitInstance, today: LocalDate): HabitStatus.ScheduleCursorStatus {
         val cursorIndex = progressDao.getByInstance(instance.id)?.cursorIndex ?: 0
-        val completedToday = dailyProgressDao.getByDate(instance.id, today.toString())?.completed ?: false
+        val todayProgress = dailyProgressDao.getByDate(instance.id, today.toString())
+        val completedToday = todayProgress?.completed ?: false
+        val entriesReadToday = todayProgress?.entriesMarkedRead ?: 0
         return when (val status = deriveScheduleEntryStatus(schedule, cursorIndex, today)) {
             is ScheduleEntryStatus.Finished ->
-                HabitStatus.ScheduleCursorStatus(book = null, chapterHeb = null, dueCount = 0, completed = completedToday, finished = true, isDueToday = false)
+                HabitStatus.ScheduleCursorStatus(book = null, chapterHeb = null, dueCount = 0, completed = completedToday, finished = true, isDueToday = false, entriesReadToday = entriesReadToday)
             is ScheduleEntryStatus.OnSchedule ->
-                HabitStatus.ScheduleCursorStatus(status.entry.book, status.entry.chapterHeb, dueCount = 0, completed = completedToday, finished = false, isDueToday = true)
+                HabitStatus.ScheduleCursorStatus(status.entry.book, status.entry.chapterHeb, dueCount = 0, completed = completedToday, finished = false, isDueToday = true, entriesReadToday = entriesReadToday)
             is ScheduleEntryStatus.Behind ->
-                HabitStatus.ScheduleCursorStatus(status.entry.book, status.entry.chapterHeb, dueCount = status.dueCount, completed = completedToday, finished = false, isDueToday = false)
+                HabitStatus.ScheduleCursorStatus(status.entry.book, status.entry.chapterHeb, dueCount = status.dueCount, completed = completedToday, finished = false, isDueToday = false, entriesReadToday = entriesReadToday)
             is ScheduleEntryStatus.Waiting ->
-                HabitStatus.ScheduleCursorStatus(status.entry.book, status.entry.chapterHeb, dueCount = 0, completed = completedToday, finished = false, isDueToday = false)
+                HabitStatus.ScheduleCursorStatus(status.entry.book, status.entry.chapterHeb, dueCount = 0, completed = completedToday, finished = false, isDueToday = false, entriesReadToday = entriesReadToday)
         }
     }
 

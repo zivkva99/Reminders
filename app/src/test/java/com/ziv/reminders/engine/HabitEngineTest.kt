@@ -178,7 +178,7 @@ class HabitEngineTest {
     fun todayStatus_scheduleCursorKind_dispatchesToScheduleCursorRepository() = runTest {
         val status = newEngine().todayStatus(scheduleCursorInstance, today)
 
-        assertEquals(HabitStatus.ScheduleCursorStatus("א", "א׳", dueCount = 0, completed = false, finished = false, isDueToday = true), status)
+        assertEquals(HabitStatus.ScheduleCursorStatus("א", "א׳", dueCount = 0, completed = false, finished = false, isDueToday = true, entriesReadToday = 0), status)
     }
 
     @Test

@@ -543,9 +543,12 @@ private fun ScheduleCursorHabitRow(
                 color = when {
                     // dueCount is only ever nonzero when status is Behind (see
                     // ScheduleCursorRepository's deriveScheduleEntryStatus branches) —
-                    // OnSchedule/Waiting/Finished always carry 0. Behind wins regardless of
-                    // whether something was separately marked read today — see this plan's
-                    // design doc for why the generic `completed` flag can't be used here.
+                    // OnSchedule/Waiting/Finished always carry 0. Behind still wins over the
+                    // generic `completed` flag (see this plan's design doc for why that flag
+                    // can't be used here) — but reading 2+ chapters *today* specifically (not
+                    // just "something" today) softens Behind's red to orange, back to red once
+                    // the day rolls over and entriesReadToday resets to 0.
+                    status.dueCount > 0 && status.entriesReadToday >= 2 -> StatusOrange
                     status.dueCount > 0 -> MaterialTheme.colorScheme.error
                     status.isDueToday -> StatusOrange
                     else -> GoalGreen

@@ -22,6 +22,11 @@ sealed interface HabitStatus {
         val completed: Boolean,
         val finished: Boolean,
         val isDueToday: Boolean,
+        // How many entries were marked read *today* specifically (not the running cursor
+        // position) — lets the dashboard distinguish "behind, untouched today" from "behind, but
+        // already read 2+ chapters today" even though dueCount itself doesn't change until
+        // tomorrow's date rolls the schedule forward. See ScheduleCursorRepository.todayStatus.
+        val entriesReadToday: Int,
     ) : HabitStatus
     /**
      * dueCount's shape here is deliberately NOT the same as ScheduleCursorStatus's dueCount — see
