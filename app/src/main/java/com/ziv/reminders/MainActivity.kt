@@ -24,6 +24,8 @@ import com.ziv.reminders.ui.dashboard.ComputedScheduleStatsScreen
 import com.ziv.reminders.ui.dashboard.ComputedScheduleStatsViewModel
 import com.ziv.reminders.ui.dashboard.DashboardScreen
 import com.ziv.reminders.ui.dashboard.DashboardViewModel
+import com.ziv.reminders.data.GARDEN_HABIT_INSTANCE_ID
+import com.ziv.reminders.data.SOURDOUGH_HABIT_INSTANCE_ID
 import com.ziv.reminders.ui.dashboard.IntervalDueStatsScreen
 import com.ziv.reminders.ui.dashboard.IntervalDueStatsViewModel
 import com.ziv.reminders.ui.dashboard.LegoKitStatsScreen
@@ -54,7 +56,15 @@ class MainActivity : ComponentActivity() {
                 val legoKitStatsViewModel: LegoKitStatsViewModel =
                     viewModel(factory = LegoKitStatsViewModel.factory(container))
                 val gardenStatsViewModel: IntervalDueStatsViewModel =
-                    viewModel(factory = IntervalDueStatsViewModel.factory(container))
+                    viewModel(
+                        key = "gardenStats",
+                        factory = IntervalDueStatsViewModel.factory(container, GARDEN_HABIT_INSTANCE_ID),
+                    )
+                val sourdoughStatsViewModel: IntervalDueStatsViewModel =
+                    viewModel(
+                        key = "sourdoughStats",
+                        factory = IntervalDueStatsViewModel.factory(container, SOURDOUGH_HABIT_INSTANCE_ID),
+                    )
 
                 NavHost(navController = navController, startDestination = "dashboard") {
                     composable("dashboard") {
@@ -71,6 +81,7 @@ class MainActivity : ComponentActivity() {
                             onOpenCppWeeklyStats = { navController.navigate("cppWeeklyStats") },
                             onOpenLegoKitStats = { navController.navigate("legoKitStats") },
                             onOpenGardenStats = { navController.navigate("gardenStats") },
+                            onOpenSourdoughStats = { navController.navigate("sourdoughStats") },
                         )
                     }
                     composable("exerciseCounter") {
@@ -112,6 +123,14 @@ class MainActivity : ComponentActivity() {
                     composable("gardenStats") {
                         IntervalDueStatsScreen(
                             viewModel = gardenStatsViewModel,
+                            title = "Water the garden",
+                            onBack = { navController.popBackStack() },
+                        )
+                    }
+                    composable("sourdoughStats") {
+                        IntervalDueStatsScreen(
+                            viewModel = sourdoughStatsViewModel,
+                            title = "מחמצת",
                             onBack = { navController.popBackStack() },
                         )
                     }

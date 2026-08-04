@@ -1,0 +1,13 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Placeholder only (same convention as ic_habit_garden.xml) — a flat, scored sourdough-boule
+         silhouette, standing in until a real icon is swapped in. Swapping this file later has zero
+         code impact. -->
+    <path android:fillColor="#6B4423" android:pathData="M16,62 a38,30 0 1,0 76,0 a38,30 0 1,0 -76,0 Z"/>
+    <path android:fillColor="#A9713F" android:pathData="M17,58 a37,28 0 1,0 74,0 a37,28 0 1,0 -74,0 Z"/>
+    <path android:fillColor="#F0DFC0" android:pathData="M30,42 L36,36 L64,64 L58,70 Z"/>
+    <path android:fillColor="#F0DFC0" android:pathData="M46,38 L52,32 L80,60 L74,66 Z"/>
+</vector>

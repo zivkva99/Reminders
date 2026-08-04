@@ -2,8 +2,10 @@ package com.ziv.reminders.ui.dashboard
 
 import com.ziv.reminders.data.CPP_WEEKLY_HABIT_INSTANCE_ID
 import com.ziv.reminders.data.EXERCISE_HABIT_INSTANCE_ID
+import com.ziv.reminders.data.GARDEN_HABIT_INSTANCE_ID
 import com.ziv.reminders.data.LEGO_KIT_HABIT_INSTANCE_ID
 import com.ziv.reminders.data.READING_HABIT_INSTANCE_ID
+import com.ziv.reminders.data.SOURDOUGH_HABIT_INSTANCE_ID
 import com.ziv.reminders.data.TANAKH_HABIT_INSTANCE_ID
 import kotlin.test.Test
 import kotlin.test.assertFalse
@@ -41,5 +43,20 @@ class DashboardDispatchTest {
         assertFalse(isLegoKitRow(TANAKH_HABIT_INSTANCE_ID))
         assertFalse(isLegoKitRow(CPP_WEEKLY_HABIT_INSTANCE_ID))
         assertFalse(isLegoKitRow(999L))
+    }
+
+    @Test
+    fun isSourdoughRow_sourdoughInstanceId_isTrue() {
+        assertTrue(isSourdoughRow(SOURDOUGH_HABIT_INSTANCE_ID))
+    }
+
+    @Test
+    fun isSourdoughRow_otherInstanceIds_isFalse() {
+        // Same regression guard as isLegoKitRow above — Garden is also an INTERVAL_DUE-kind
+        // habit, so dispatch must not fall through just because the shared
+        // HabitStatus.IntervalDueStatus type matches.
+        assertFalse(isSourdoughRow(GARDEN_HABIT_INSTANCE_ID))
+        assertFalse(isSourdoughRow(EXERCISE_HABIT_INSTANCE_ID))
+        assertFalse(isSourdoughRow(999L))
     }
 }

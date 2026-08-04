@@ -37,6 +37,35 @@ class HabitSeedingTest {
     }
 
     @Test
+    fun ensureHabitsSeeded_seedsSourdoughInstance_dueToday() = runTest {
+        val db = newDb()
+        val today = LocalDate.now()
+
+        ensureHabitsSeeded(db.habitInstanceDao(), db.computedScheduleProgressDao(), db.intervalDueProgressDao())
+
+        val instance = db.habitInstanceDao().getById(SOURDOUGH_HABIT_INSTANCE_ID)
+        assertEquals("מחמצת", instance?.name)
+        assertEquals(HabitKind.INTERVAL_DUE.name, instance?.kind)
+
+        val progress = db.intervalDueProgressDao().getByInstance(SOURDOUGH_HABIT_INSTANCE_ID)
+        assertEquals(today.toString(), progress?.nextDueDate)
+        db.close()
+    }
+
+    @Test
+    fun ensureHabitsSeeded_calledTwice_doesNotResetSourdoughsAlreadyAdvancedDueDate() = runTest {
+        val db = newDb()
+        ensureHabitsSeeded(db.habitInstanceDao(), db.computedScheduleProgressDao(), db.intervalDueProgressDao())
+        db.intervalDueProgressDao().upsert(IntervalDueProgress(SOURDOUGH_HABIT_INSTANCE_ID, nextDueDate = "2026-08-20"))
+
+        ensureHabitsSeeded(db.habitInstanceDao(), db.computedScheduleProgressDao(), db.intervalDueProgressDao())
+
+        val progress = db.intervalDueProgressDao().getByInstance(SOURDOUGH_HABIT_INSTANCE_ID)
+        assertEquals("2026-08-20", progress?.nextDueDate)
+        db.close()
+    }
+
+    @Test
     fun ensureHabitsSeeded_calledTwice_doesNotResetAnAlreadyAdvancedDueDate() = runTest {
         // Regression test (Eng review finding): re-running seeding on every app restart must
         // never reset a real, already-advanced due date back to "today".

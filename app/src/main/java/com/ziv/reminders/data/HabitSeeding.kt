@@ -9,6 +9,7 @@ const val TANAKH_HABIT_INSTANCE_ID = 3L
 const val CPP_WEEKLY_HABIT_INSTANCE_ID = 4L
 const val LEGO_KIT_HABIT_INSTANCE_ID = 5L
 const val GARDEN_HABIT_INSTANCE_ID = 6L
+const val SOURDOUGH_HABIT_INSTANCE_ID = 7L
 
 /**
  * Idempotent — safe to call on every app startup (RemindersApp.onCreate). insertIfAbsent's
@@ -117,5 +118,23 @@ suspend fun ensureHabitsSeeded(
     )
     intervalDueProgressDao.insertIfAbsent(
         IntervalDueProgress(habitInstanceId = GARDEN_HABIT_INSTANCE_ID, nextDueDate = LocalDate.now().toString())
+    )
+    // Second INTERVAL_DUE instance — same kind as Garden, so it needs zero new domain classes
+    // (HabitEngine/IntervalDueRepository already dispatch by instance.id, not by a hardcoded
+    // single row). Only the dashboard row's icon/wording and the stats route are per-instance;
+    // see DashboardScreen.kt's isSourdoughRow.
+    dao.insertIfAbsent(
+        HabitInstance(
+            id = SOURDOUGH_HABIT_INSTANCE_ID,
+            kind = HabitKind.INTERVAL_DUE.name,
+            name = "מחמצת",
+            enabledDaysMask = 0b1111111, // unused by this kind, all-days for consistency (see Garden above)
+            notificationTitle = "Reminders",
+            notificationBody = "🍞 Time to feed the מחמצת!",
+            counterGoal = null,
+        )
+    )
+    intervalDueProgressDao.insertIfAbsent(
+        IntervalDueProgress(habitInstanceId = SOURDOUGH_HABIT_INSTANCE_ID, nextDueDate = LocalDate.now().toString())
     )
 }

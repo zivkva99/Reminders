@@ -25,14 +25,14 @@ import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun IntervalDueStatsScreen(viewModel: IntervalDueStatsViewModel, onBack: () -> Unit) {
+fun IntervalDueStatsScreen(viewModel: IntervalDueStatsViewModel, title: String, onBack: () -> Unit) {
     LaunchedEffect(Unit) { viewModel.refresh() }
     val state by viewModel.uiState.collectAsState()
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Water the garden") },
+                title = { Text(title) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")

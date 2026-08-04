@@ -56,6 +56,7 @@ import com.ziv.reminders.R
 import com.ziv.reminders.data.EXERCISE_HABIT_INSTANCE_ID
 import com.ziv.reminders.data.HabitStatus
 import com.ziv.reminders.data.LEGO_KIT_HABIT_INSTANCE_ID
+import com.ziv.reminders.data.SOURDOUGH_HABIT_INSTANCE_ID
 import com.ziv.reminders.data.isEnabledDay
 import com.ziv.reminders.ui.exercise.GoalGreen
 import com.ziv.reminders.ui.exercise.StatusOrange
@@ -74,6 +75,7 @@ fun DashboardScreen(
     onOpenCppWeeklyStats: () -> Unit = {},
     onOpenLegoKitStats: () -> Unit = {},
     onOpenGardenStats: () -> Unit = {},
+    onOpenSourdoughStats: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val coroutineScope = rememberCoroutineScope()
@@ -153,7 +155,7 @@ fun DashboardScreen(
                     onMarkDone = { intervalDays ->
                         coroutineScope.launch {
                             viewModel.onMarkDone(habit.instanceId, intervalDays)
-                            snackbarHostState.showSnackbar(message = "Watered!", duration = SnackbarDuration.Short)
+                            snackbarHostState.showSnackbar(message = "${intervalDueVerbPast(habit.instanceId)}!", duration = SnackbarDuration.Short)
                         }
                     },
                     onRescheduleOnly = { intervalDays ->
@@ -169,6 +171,7 @@ fun DashboardScreen(
                     onOpenCppWeeklyStats = onOpenCppWeeklyStats,
                     onOpenLegoKitStats = onOpenLegoKitStats,
                     onOpenGardenStats = onOpenGardenStats,
+                    onOpenSourdoughStats = onOpenSourdoughStats,
                 )
                 Spacer(Modifier.height(8.dp))
             }
@@ -196,6 +199,7 @@ private fun HabitRow(
     onMarkDone: (Int) -> Unit,
     onRescheduleOnly: (Int) -> Unit,
     onOpenGardenStats: () -> Unit,
+    onOpenSourdoughStats: () -> Unit,
 ) {
     when (habit.status) {
         is HabitStatus.CounterStatus -> if (isLegoKitRow(habit.instanceId)) {
@@ -206,7 +210,15 @@ private fun HabitRow(
         is HabitStatus.TimerStatus -> TimerHabitRow(habit, habit.status, onToggleTimer, onResetReadingToday, fetchReadingSessionCountToday, onOpenReadingStats)
         is HabitStatus.ScheduleCursorStatus -> ScheduleCursorHabitRow(habit, habit.status, onMarkRead, onOpenTanakhStats)
         is HabitStatus.ComputedScheduleStatus -> ComputedScheduleHabitRow(habit, habit.status, onMarkNextWatched, onOpenCppWeeklyStats)
-        is HabitStatus.IntervalDueStatus -> IntervalDueHabitRow(habit, habit.status, onMarkDone, onRescheduleOnly, onOpenGardenStats)
+        is HabitStatus.IntervalDueStatus -> IntervalDueHabitRow(
+            habit, habit.status,
+            iconRes = intervalDueIconRes(habit.instanceId),
+            verb = intervalDueVerb(habit.instanceId),
+            verbPast = intervalDueVerbPast(habit.instanceId),
+            onMarkDone = onMarkDone,
+            onRescheduleOnly = onRescheduleOnly,
+            onOpenStats = if (isSourdoughRow(habit.instanceId)) onOpenSourdoughStats else onOpenGardenStats,
+        )
     }
 }
 
@@ -222,6 +234,19 @@ fun hasExerciseDetailMenu(instanceId: Long): Boolean = instanceId == EXERCISE_HA
 // to CounterHabitRow's always-tappable, never-dimmed rendering just because the status type
 // matches (see DashboardDispatchTest).
 fun isLegoKitRow(instanceId: Long): Boolean = instanceId == LEGO_KIT_HABIT_INSTANCE_ID
+
+// Same "dispatch by ID, not by shared HabitKind" rule again — מחמצת is also an INTERVAL_DUE-kind
+// habit (shares HabitStatus.IntervalDueStatus with Garden), so IntervalDueHabitRow's icon/wording/
+// stats destination must be chosen by instance ID rather than assuming there's only ever one.
+fun isSourdoughRow(instanceId: Long): Boolean = instanceId == SOURDOUGH_HABIT_INSTANCE_ID
+
+private fun intervalDueIconRes(instanceId: Long): Int =
+    if (isSourdoughRow(instanceId)) R.drawable.ic_habit_sourdough else R.drawable.ic_habit_garden
+
+// Imperative and past-tense forms of this instance's action verb — kept as two explicit strings
+// rather than derived (e.g. "$verb" + "ed") because "Feed"/"Fed" isn't a regular past tense.
+private fun intervalDueVerb(instanceId: Long): String = if (isSourdoughRow(instanceId)) "Feed" else "Water"
+private fun intervalDueVerbPast(instanceId: Long): String = if (isSourdoughRow(instanceId)) "Fed" else "Watered"
 
 // Small, deliberately generic long-press menu mechanism — a row supplies a title and a list of
 // labeled actions, this renders them as an AlertDialog with one button per option plus Cancel.
@@ -716,9 +741,12 @@ private fun IntervalDuePickerDialog(
 private fun IntervalDueHabitRow(
     habit: HabitRowUiState,
     status: HabitStatus.IntervalDueStatus,
+    iconRes: Int,
+    verb: String,
+    verbPast: String,
     onMarkDone: (Int) -> Unit,
     onRescheduleOnly: (Int) -> Unit,
-    onOpenGardenStats: () -> Unit,
+    onOpenStats: () -> Unit,
 ) {
     var showMenu by remember { mutableStateOf(false) }
     var showPicker by remember { mutableStateOf<PickerMode?>(null) }
@@ -758,7 +786,7 @@ private fun IntervalDueHabitRow(
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Image(painter = painterResource(R.drawable.ic_habit_garden), contentDescription = null, modifier = Modifier.size(40.dp))
+            Image(painter = painterResource(iconRes), contentDescription = null, modifier = Modifier.size(40.dp))
             HabitStatusDot(color = dotColor)
             Column {
                 Text(habit.name, style = MaterialTheme.typography.bodyLarge)
@@ -766,10 +794,10 @@ private fun IntervalDueHabitRow(
                 // other row's left block is icon+dot+Column(name, subtitle), and dropping the
                 // second line was an unconsidered gap, not a deliberate departure like the
                 // Statistics screen's no-streak choice is. habit.streak carries total-times-
-                // watered for this kind (see HabitEngine.currentStreak's INTERVAL_DUE branch,
+                // done for this kind (see HabitEngine.currentStreak's INTERVAL_DUE branch,
                 // Task 2) — NOT a real streak, just the same generic per-row summary-count slot
                 // repurposed, at zero extra repository calls in the dashboard-refresh hot path.
-                Text("Watered ${habit.streak} time${if (habit.streak == 1) "" else "s"}", style = MaterialTheme.typography.bodySmall)
+                Text("$verbPast ${habit.streak} time${if (habit.streak == 1) "" else "s"}", style = MaterialTheme.typography.bodySmall)
             }
         }
         Text(text = statusText, style = MaterialTheme.typography.titleMedium)
@@ -789,7 +817,7 @@ private fun IntervalDueHabitRow(
             options = listOf(
                 RowMenuOption("Mark done + reschedule", onSelect = { showPicker = PickerMode.MARK_DONE }),
                 RowMenuOption("Reschedule only", onSelect = { showPicker = PickerMode.RESCHEDULE_ONLY }),
-                RowMenuOption("Statistics", onOpenGardenStats),
+                RowMenuOption("Statistics", onOpenStats),
             ),
             onDismiss = { showMenu = false },
         )
@@ -797,7 +825,7 @@ private fun IntervalDueHabitRow(
 
     showPicker?.let { mode ->
         IntervalDuePickerDialog(
-            title = if (mode == PickerMode.MARK_DONE) "Water again in how many days?" else "Reschedule to how many days from now?",
+            title = if (mode == PickerMode.MARK_DONE) "$verb again in how many days?" else "Reschedule to how many days from now?",
             onConfirm = { days ->
                 showPicker = null
                 if (mode == PickerMode.MARK_DONE) onMarkDone(days) else onRescheduleOnly(days)
