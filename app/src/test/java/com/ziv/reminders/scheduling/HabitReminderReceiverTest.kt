@@ -151,6 +151,87 @@ class HabitReminderReceiverTest {
     }
 
     @Test
+    fun onReceive_intervalDueNotYetDue_postsNothing() = runTest {
+        // Regression test for the bug where Water the Garden/מחמצת's reminder fired every day
+        // regardless of due date — the old check only looked at completedToday, which is false
+        // on every not-yet-due day too (nothing was completed today because nothing was due).
+        val db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java)
+            .setQueryCoroutineContext(StandardTestDispatcher(testScheduler))
+            .build()
+        val gardenInstance = HabitInstance(
+            id = 6L, kind = "INTERVAL_DUE", name = "Water the garden", enabledDaysMask = 0b1111111,
+            notificationTitle = "Reminders", notificationBody = "Time to water the garden!", counterGoal = null,
+        )
+        db.habitInstanceDao().insertIfAbsent(gardenInstance)
+        db.intervalDueProgressDao().insertIfAbsent(
+            com.ziv.reminders.data.IntervalDueProgress(habitInstanceId = 6L, nextDueDate = "2026-07-20")
+        )
+
+        val receiver = HabitReminderReceiver()
+        receiver.today = { LocalDate.of(2026, 7, 14) } // 6 days before nextDueDate — not due yet
+        receiver.habitInstanceDaoOverride = db.habitInstanceDao()
+        receiver.habitEngineOverride = HabitEngine(
+            CounterHabitRepository(db.counterDailyProgressDao()),
+            com.ziv.reminders.data.TimerHabitRepository(db.timerDailyProgressDao(), com.ziv.reminders.data.SystemClock),
+            com.ziv.reminders.data.ScheduleCursorRepository(
+                db.scheduleCursorProgressDao(), db.scheduleCursorDailyProgressDao(), emptyList(),
+            ),
+            com.ziv.reminders.data.ComputedScheduleRepository(db.computedScheduleProgressDao(), db.computedScheduleWatchLogDao()),
+            com.ziv.reminders.data.IntervalDueRepository(db.intervalDueProgressDao(), db.intervalDueLogDao()),
+        )
+        receiver.evaluatorEscalationDaoOverride = db.evaluatorEscalationDao()
+        receiver.scopeOverride = CoroutineScope(StandardTestDispatcher(testScheduler))
+
+        dispatch(receiver, habitInstanceId = 6L)
+        testScheduler.advanceUntilIdle()
+
+        val manager = context.getSystemService(NotificationManager::class.java)
+        val notification = manager.activeNotifications.firstOrNull { it.id == HabitNotifications.notificationId(gardenInstance) }
+        assertNull(notification)
+
+        db.close()
+    }
+
+    @Test
+    fun onReceive_intervalDueDueTodayAndNotYetDone_postsAReminderNotification() = runTest {
+        val db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java)
+            .setQueryCoroutineContext(StandardTestDispatcher(testScheduler))
+            .build()
+        val gardenInstance = HabitInstance(
+            id = 6L, kind = "INTERVAL_DUE", name = "Water the garden", enabledDaysMask = 0b1111111,
+            notificationTitle = "Reminders", notificationBody = "Time to water the garden!", counterGoal = null,
+        )
+        db.habitInstanceDao().insertIfAbsent(gardenInstance)
+        db.intervalDueProgressDao().insertIfAbsent(
+            com.ziv.reminders.data.IntervalDueProgress(habitInstanceId = 6L, nextDueDate = "2026-07-14")
+        )
+
+        val receiver = HabitReminderReceiver()
+        receiver.today = { LocalDate.of(2026, 7, 14) } // due today, not yet marked done
+        receiver.habitInstanceDaoOverride = db.habitInstanceDao()
+        receiver.habitEngineOverride = HabitEngine(
+            CounterHabitRepository(db.counterDailyProgressDao()),
+            com.ziv.reminders.data.TimerHabitRepository(db.timerDailyProgressDao(), com.ziv.reminders.data.SystemClock),
+            com.ziv.reminders.data.ScheduleCursorRepository(
+                db.scheduleCursorProgressDao(), db.scheduleCursorDailyProgressDao(), emptyList(),
+            ),
+            com.ziv.reminders.data.ComputedScheduleRepository(db.computedScheduleProgressDao(), db.computedScheduleWatchLogDao()),
+            com.ziv.reminders.data.IntervalDueRepository(db.intervalDueProgressDao(), db.intervalDueLogDao()),
+        )
+        receiver.evaluatorEscalationDaoOverride = db.evaluatorEscalationDao()
+        receiver.scopeOverride = CoroutineScope(StandardTestDispatcher(testScheduler))
+
+        dispatch(receiver, habitInstanceId = 6L)
+        testScheduler.advanceUntilIdle()
+
+        val manager = context.getSystemService(NotificationManager::class.java)
+        val notification = manager.activeNotifications.firstOrNull { it.id == HabitNotifications.notificationId(gardenInstance) }
+        assertEquals(HabitNotifications.channelId(gardenInstance), notification?.notification?.channelId)
+
+        db.close()
+    }
+
+    @Test
     fun onReceive_actionStartReading_startsTimerServiceViaForegroundServiceStart() = runTest {
         val db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java)
             .setQueryCoroutineContext(StandardTestDispatcher(testScheduler))

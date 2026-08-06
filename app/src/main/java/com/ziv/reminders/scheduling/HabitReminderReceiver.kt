@@ -82,7 +82,14 @@ class HabitReminderReceiver : BroadcastReceiver() {
                     // though no user action produced it. dueCount >= 1 (something new to watch)
                     // is the only case that should ever fire this habit's reminder.
                     is HabitStatus.ComputedScheduleStatus -> status.dueCount == 0
-                    is HabitStatus.IntervalDueStatus -> status.completedToday
+                    // Same precedent as ComputedScheduleStatus above — !isDue means nothing is
+                    // due yet (e.g. watered yesterday, not due for another 6 days), so that
+                    // counts as "completed" for reminder-suppression purposes too. Bug fix: this
+                    // previously read only `status.completedToday`, which is false on every
+                    // not-yet-due day (nothing was completed today because there was nothing to
+                    // do), so the reminder fired daily regardless of whether the habit was
+                    // actually due — see HabitReminderReceiverTest's regression test.
+                    is HabitStatus.IntervalDueStatus -> !status.isDue || status.completedToday
                 }
                 val alreadyEscalatedToday = escalationDao.getByDate(habitInstanceId, today().toString())?.escalated == true
                 if (!completed && !alreadyEscalatedToday) {
