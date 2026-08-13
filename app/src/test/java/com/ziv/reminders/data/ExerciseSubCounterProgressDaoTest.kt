@@ -73,4 +73,33 @@ class ExerciseSubCounterProgressDaoTest {
         assertEquals(2, rows.size)
         db.close()
     }
+
+    @Test
+    fun getLatestBefore_noPriorRow_returnsNull() = runTest {
+        val db = newDb()
+        assertNull(db.exerciseSubCounterProgressDao().getLatestBefore(EXERCISE_KEY_PUSHUP, "2026-07-19"))
+        db.close()
+    }
+
+    @Test
+    fun getLatestBefore_returnsNearestPriorDay_notEarlierOnes() = runTest {
+        val db = newDb()
+        db.exerciseSubCounterProgressDao().upsert(ExerciseSubCounterProgress(EXERCISE_KEY_PUSHUP, "2026-07-10", 3))
+        db.exerciseSubCounterProgressDao().upsert(ExerciseSubCounterProgress(EXERCISE_KEY_PUSHUP, "2026-07-17", 2))
+
+        val latest = db.exerciseSubCounterProgressDao().getLatestBefore(EXERCISE_KEY_PUSHUP, "2026-07-19")
+        assertEquals(2, latest?.count)
+        db.close()
+    }
+
+    @Test
+    fun getLatestBefore_ignoresSameDayAndLaterRows_andOtherExerciseKeys() = runTest {
+        val db = newDb()
+        db.exerciseSubCounterProgressDao().upsert(ExerciseSubCounterProgress(EXERCISE_KEY_PUSHUP, "2026-07-19", 8))
+        db.exerciseSubCounterProgressDao().upsert(ExerciseSubCounterProgress(EXERCISE_KEY_PUSHUP, "2026-07-20", 9))
+        db.exerciseSubCounterProgressDao().upsert(ExerciseSubCounterProgress(EXERCISE_KEY_SITUP, "2026-07-18", 16))
+
+        assertNull(db.exerciseSubCounterProgressDao().getLatestBefore(EXERCISE_KEY_PUSHUP, "2026-07-19"))
+        db.close()
+    }
 }

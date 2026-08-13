@@ -10,6 +10,9 @@ private class FakeExerciseSubCounterProgressDao : ExerciseSubCounterProgressDao 
     override suspend fun getByDate(exerciseKey: String, date: String) = rows[exerciseKey to date]
     override suspend fun upsert(progress: ExerciseSubCounterProgress) { rows[progress.exerciseKey to progress.date] = progress }
     override suspend fun getAllForDate(date: String) = rows.values.filter { it.date == date }
+    override suspend fun getLatestBefore(exerciseKey: String, date: String) = rows.values
+        .filter { it.exerciseKey == exerciseKey && it.date < date }
+        .maxByOrNull { it.date }
 }
 
 class SubCounterRepositoryTest {
@@ -29,6 +32,40 @@ class SubCounterRepositoryTest {
         val repo = SubCounterRepository(dao)
 
         assertEquals(12, repo.todayValue(EXERCISE_KEY_PUSHUP, today))
+    }
+
+    @Test
+    fun todayValue_noRowToday_carriesForwardMostRecentPriorDay() = runTest {
+        val dao = FakeExerciseSubCounterProgressDao()
+        dao.rows[EXERCISE_KEY_PUSHUP to today.minusDays(1).toString()] =
+            ExerciseSubCounterProgress(EXERCISE_KEY_PUSHUP, today.minusDays(1).toString(), 2)
+        val repo = SubCounterRepository(dao)
+
+        assertEquals(2, repo.todayValue(EXERCISE_KEY_PUSHUP, today))
+    }
+
+    @Test
+    fun todayValue_noRowToday_carriesForwardFromNearestPriorDay_notJustYesterday() = runTest {
+        val dao = FakeExerciseSubCounterProgressDao()
+        dao.rows[EXERCISE_KEY_PUSHUP to today.minusDays(5).toString()] =
+            ExerciseSubCounterProgress(EXERCISE_KEY_PUSHUP, today.minusDays(5).toString(), 16)
+        val repo = SubCounterRepository(dao)
+
+        assertEquals(16, repo.todayValue(EXERCISE_KEY_PUSHUP, today))
+    }
+
+    @Test
+    fun adjust_noRowToday_appliesDeltaOnTopOfCarriedForwardValue() = runTest {
+        val dao = FakeExerciseSubCounterProgressDao()
+        dao.rows[EXERCISE_KEY_PUSHUP to today.minusDays(1).toString()] =
+            ExerciseSubCounterProgress(EXERCISE_KEY_PUSHUP, today.minusDays(1).toString(), 2)
+        val repo = SubCounterRepository(dao)
+
+        repo.adjust(EXERCISE_KEY_PUSHUP, today, +1)
+
+        assertEquals(3, repo.todayValue(EXERCISE_KEY_PUSHUP, today))
+        // Yesterday's own row is untouched by today's adjustment.
+        assertEquals(2, dao.rows[EXERCISE_KEY_PUSHUP to today.minusDays(1).toString()]?.count)
     }
 
     @Test

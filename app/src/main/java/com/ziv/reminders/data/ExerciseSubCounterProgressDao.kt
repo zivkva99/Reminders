@@ -14,4 +14,10 @@ interface ExerciseSubCounterProgressDao {
 
     @Query("SELECT * FROM exercise_sub_counter_progress WHERE date = :date")
     suspend fun getAllForDate(date: String): List<ExerciseSubCounterProgress>
+
+    @Query(
+        "SELECT * FROM exercise_sub_counter_progress WHERE exerciseKey = :exerciseKey AND date < :date " +
+            "ORDER BY date DESC LIMIT 1"
+    )
+    suspend fun getLatestBefore(exerciseKey: String, date: String): ExerciseSubCounterProgress?
 }

@@ -66,6 +66,9 @@ private class FakeExerciseSubCounterProgressDao : ExerciseSubCounterProgressDao 
     override suspend fun getByDate(exerciseKey: String, date: String) = rows[exerciseKey to date]
     override suspend fun upsert(progress: ExerciseSubCounterProgress) { rows[progress.exerciseKey to progress.date] = progress }
     override suspend fun getAllForDate(date: String) = rows.values.filter { it.date == date }
+    override suspend fun getLatestBefore(exerciseKey: String, date: String) = rows.values
+        .filter { it.exerciseKey == exerciseKey && it.date < date }
+        .maxByOrNull { it.date }
 }
 
 private class FakeTimerDailyProgressDao : TimerDailyProgressDao {
