@@ -78,6 +78,9 @@ private class FakeComputedScheduleWatchLogDao : ComputedScheduleWatchLogDao {
     override suspend fun insert(entry: ComputedScheduleWatchLog): Long { rows += entry; return rows.size.toLong() }
     override suspend fun getWatchedDates(habitInstanceId: Long): List<String> =
         rows.filter { it.habitInstanceId == habitInstanceId }.map { it.date }.distinct()
+    override suspend fun getMostRecentForDate(habitInstanceId: Long, date: String): ComputedScheduleWatchLog? =
+        rows.filter { it.habitInstanceId == habitInstanceId && it.date == date }.maxByOrNull { it.id }
+    override suspend fun delete(entry: ComputedScheduleWatchLog) { rows.remove(entry) }
 }
 
 private class FakeIntervalDueProgressDao : IntervalDueProgressDao {

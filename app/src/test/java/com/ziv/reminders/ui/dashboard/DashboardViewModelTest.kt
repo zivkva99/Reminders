@@ -390,6 +390,39 @@ class DashboardViewModelTest {
     }
 
     @Test
+    fun onUndoMarkNextWatched_reversesTheMostRecentMarkNextWatched() = runTest {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java)
+            .setQueryCoroutineContext(StandardTestDispatcher(testScheduler))
+            .allowMainThreadQueries()
+            .build()
+        val today = java.time.LocalDate.now()
+        db.habitInstanceDao().insertIfAbsent(
+            HabitInstance(
+                id = 4L, kind = "COMPUTED_SCHEDULE", name = "C++ Weekly", enabledDaysMask = 0b1111111,
+                notificationTitle = "t", notificationBody = "b", counterGoal = null,
+                anchorItemNumber = 542, anchorDate = today.toString(), intervalDays = 7,
+            )
+        )
+        db.computedScheduleProgressDao().insertIfAbsent(
+            com.ziv.reminders.data.ComputedScheduleProgress(habitInstanceId = 4L, nextItemNumber = 542)
+        )
+        val viewModel = DashboardViewModel(TestAppContainer(db))
+        viewModel.refresh()
+        testScheduler.advanceUntilIdle()
+        viewModel.onMarkNextWatched(4L)
+        testScheduler.advanceUntilIdle()
+
+        viewModel.onUndoMarkNextWatched(4L)
+        testScheduler.advanceUntilIdle()
+
+        val status = viewModel.uiState.value.habits[0].status as HabitStatus.ComputedScheduleStatus
+        assertEquals(542, status.nextItemNumber)
+
+        db.close()
+    }
+
+    @Test
     fun onMarkNextWatched_notYetDue_isNoOp() = runTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java)

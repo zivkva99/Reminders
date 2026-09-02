@@ -62,4 +62,39 @@ class ComputedScheduleWatchLogDaoTest {
         assertEquals(listOf("2026-07-21"), db.computedScheduleWatchLogDao().getWatchedDates(4L))
         db.close()
     }
+
+    @Test
+    fun getMostRecentForDate_noRows_returnsNull() = runTest {
+        val db = newDb()
+        assertEquals(null, db.computedScheduleWatchLogDao().getMostRecentForDate(4L, "2026-07-21"))
+        db.close()
+    }
+
+    // Feeds ComputedScheduleRepository.undoMarkNextWatched — two taps the same day (catching up
+    // 2 backlog episodes) must resolve to the later one (episode 545, the higher id), not the
+    // first, so undo reverses the tap that was actually just made.
+    @Test
+    fun getMostRecentForDate_twoEventsSameDay_returnsTheHigherId() = runTest {
+        val db = newDb()
+        db.computedScheduleWatchLogDao().insert(ComputedScheduleWatchLog(habitInstanceId = 4L, date = "2026-08-04", episodeNumber = 544))
+        db.computedScheduleWatchLogDao().insert(ComputedScheduleWatchLog(habitInstanceId = 4L, date = "2026-08-04", episodeNumber = 545))
+
+        val mostRecent = db.computedScheduleWatchLogDao().getMostRecentForDate(4L, "2026-08-04")
+
+        assertEquals(545, mostRecent?.episodeNumber)
+        db.close()
+    }
+
+    @Test
+    fun delete_removesOnlyThatRow() = runTest {
+        val db = newDb()
+        db.computedScheduleWatchLogDao().insert(ComputedScheduleWatchLog(habitInstanceId = 4L, date = "2026-07-14", episodeNumber = 542))
+        db.computedScheduleWatchLogDao().insert(ComputedScheduleWatchLog(habitInstanceId = 4L, date = "2026-07-21", episodeNumber = 543))
+        val toDelete = db.computedScheduleWatchLogDao().getMostRecentForDate(4L, "2026-07-21")!!
+
+        db.computedScheduleWatchLogDao().delete(toDelete)
+
+        assertEquals(listOf("2026-07-14"), db.computedScheduleWatchLogDao().getWatchedDates(4L))
+        db.close()
+    }
 }

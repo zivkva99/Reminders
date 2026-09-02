@@ -29,6 +29,9 @@ private class FakeComputedScheduleWatchLogDao : ComputedScheduleWatchLogDao {
     }
     override suspend fun getWatchedDates(habitInstanceId: Long): List<String> =
         rows.filter { it.habitInstanceId == habitInstanceId }.map { it.date }.distinct()
+    override suspend fun getMostRecentForDate(habitInstanceId: Long, date: String): ComputedScheduleWatchLog? =
+        rows.filter { it.habitInstanceId == habitInstanceId && it.date == date }.maxByOrNull { it.id }
+    override suspend fun delete(entry: ComputedScheduleWatchLog) { rows.remove(entry) }
 }
 
 class ComputedScheduleRepositoryTest {
@@ -112,6 +115,51 @@ class ComputedScheduleRepositoryTest {
         // skipped or double-counted backlog episodes would pass the assertion above alone.
         val statusAfter = repo.todayStatus(instance, today = LocalDate.of(2026, 8, 4))
         assertEquals(2, statusAfter.dueCount)
+    }
+
+    @Test
+    fun undoMarkNextWatched_reversesTheMostRecentTap() = runTest {
+        val progressDao = FakeComputedScheduleProgressDao()
+        progressDao.rows[4L] = ComputedScheduleProgress(4L, nextItemNumber = 543)
+        val watchLogDao = FakeComputedScheduleWatchLogDao()
+        val repo = ComputedScheduleRepository(progressDao, watchLogDao)
+        val today = LocalDate.of(2026, 7, 21)
+        repo.markNextWatched(instance, today)
+        assertEquals(544, progressDao.rows[4L]?.nextItemNumber)
+
+        repo.undoMarkNextWatched(instance, today)
+
+        assertEquals(543, progressDao.rows[4L]?.nextItemNumber)
+        assertEquals(emptyList(), watchLogDao.rows)
+    }
+
+    @Test
+    fun undoMarkNextWatched_nothingLoggedToday_isNoOp() = runTest {
+        val progressDao = FakeComputedScheduleProgressDao()
+        progressDao.rows[4L] = ComputedScheduleProgress(4L, nextItemNumber = 543)
+        val watchLogDao = FakeComputedScheduleWatchLogDao()
+        watchLogDao.rows += ComputedScheduleWatchLog(1L, 4L, "2026-07-14", 542) // a different day — shouldn't be touched
+        val repo = ComputedScheduleRepository(progressDao, watchLogDao)
+
+        repo.undoMarkNextWatched(instance, today = LocalDate.of(2026, 7, 21))
+
+        assertEquals(543, progressDao.rows[4L]?.nextItemNumber) // unchanged — nothing today to undo
+        assertEquals(1, watchLogDao.rows.size) // log untouched
+    }
+
+    @Test
+    fun undoMarkNextWatched_onlyRemovesTodaysLogEntry_leavesOtherDaysAlone() = runTest {
+        val progressDao = FakeComputedScheduleProgressDao()
+        progressDao.rows[4L] = ComputedScheduleProgress(4L, nextItemNumber = 544)
+        val watchLogDao = FakeComputedScheduleWatchLogDao()
+        watchLogDao.rows += ComputedScheduleWatchLog(1L, 4L, "2026-07-14", 542)
+        watchLogDao.rows += ComputedScheduleWatchLog(2L, 4L, "2026-07-21", 543)
+        val repo = ComputedScheduleRepository(progressDao, watchLogDao)
+
+        repo.undoMarkNextWatched(instance, today = LocalDate.of(2026, 7, 21))
+
+        assertEquals(543, progressDao.rows[4L]?.nextItemNumber)
+        assertEquals(listOf(ComputedScheduleWatchLog(1L, 4L, "2026-07-14", 542)), watchLogDao.rows)
     }
 
     @Test

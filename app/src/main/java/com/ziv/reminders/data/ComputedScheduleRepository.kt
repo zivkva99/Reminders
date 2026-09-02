@@ -71,6 +71,31 @@ class ComputedScheduleRepository(
     }
 
     /**
+     * Reverses the most recent markNextWatched tap for [today] — added once the Scope Revision's
+     * watch-log table made this possible (see DashboardViewModel.onMarkNextWatched's doc comment:
+     * its old "no undo, no per-day table to reverse against" note predates that table and is now
+     * stale). Reverses only [today]'s log entry — a "just tapped, changed my mind" correction,
+     * not an arbitrary-past-day edit, matching Tanakh's same scope restriction (its design doc's
+     * Recommended Approach, and ScheduleCursorRepository.undoMarkRead's doc comment).
+     *
+     * The guard here is "does today's watch-log entry exist", not ScheduleCursorRepository.
+     * undoMarkRead's "is the running position above its floor" shape — cursorIndex has a real
+     * universal floor (0), but nextItemNumber doesn't: a fresh instance can legitimately seed
+     * nextItemNumber below anchorItemNumber + 1 (the anchor episode itself, not yet watched), so
+     * an arithmetic floor there would wrongly refuse a same-day undo right after seeding. Gating
+     * on the log entry instead is exact: it exists if and only if a tap actually happened today.
+     */
+    suspend fun undoMarkNextWatched(instance: HabitInstance, today: LocalDate) {
+        runInTransaction {
+            val progress = progressDao.getByInstance(instance.id) ?: return@runInTransaction
+            val mostRecent = watchLogDao.getMostRecentForDate(instance.id, today.toString())
+                ?: return@runInTransaction // nothing logged today to undo
+            watchLogDao.delete(mostRecent)
+            progressDao.upsert(progress.copy(nextItemNumber = progress.nextItemNumber - 1))
+        }
+    }
+
+    /**
      * Added per the Scope Revision (see the section below the CEO Phase 1 header) — this method
      * previously always returned 0 ("there is nothing to count"). Mirrors
      * ExerciseViewModel/ActivityViewModel's own existing `HabitStats.parseDates(...)` +

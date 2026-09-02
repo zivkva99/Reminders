@@ -58,6 +58,8 @@ private class FakeComputedScheduleProgressDaoForCrossHabit : ComputedSchedulePro
 private class FakeComputedScheduleWatchLogDaoForCrossHabit : ComputedScheduleWatchLogDao {
     override suspend fun insert(entry: ComputedScheduleWatchLog): Long = 0L
     override suspend fun getWatchedDates(habitInstanceId: Long): List<String> = emptyList()
+    override suspend fun getMostRecentForDate(habitInstanceId: Long, date: String): ComputedScheduleWatchLog? = null
+    override suspend fun delete(entry: ComputedScheduleWatchLog) {}
 }
 
 private class FakeIntervalDueProgressDaoForCrossHabit : IntervalDueProgressDao {

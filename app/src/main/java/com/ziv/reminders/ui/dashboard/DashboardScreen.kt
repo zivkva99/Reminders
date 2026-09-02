@@ -132,17 +132,20 @@ fun DashboardScreen(
                     },
                     onMarkNextWatched = {
                         coroutineScope.launch {
-                            // No "Undo" action label (unlike onIncrement/onMarkRead above) — this
-                            // kind has no per-day daily-progress table to reverse against; this is
-                            // purely an acknowledgment Snackbar (Final Approval Gate decision — this
-                            // row was otherwise the only mutating row in the app with zero tap
-                            // feedback), shown only when a tap actually did something.
+                            // Now offers "Undo" (unlike the original v1 comment here claimed) —
+                            // the watch-log table added per the Scope Revision gives this kind
+                            // something per-day to reverse against, same as onIncrement/onMarkRead
+                            // above. Still shown only when a tap actually did something.
                             val watchedEpisode = viewModel.onMarkNextWatched(habit.instanceId)
                             if (watchedEpisode != null) {
-                                snackbarHostState.showSnackbar(
+                                val result = snackbarHostState.showSnackbar(
                                     message = "Marked episode $watchedEpisode watched",
+                                    actionLabel = "Undo",
                                     duration = SnackbarDuration.Short,
                                 )
+                                if (result == SnackbarResult.ActionPerformed) {
+                                    viewModel.onUndoMarkNextWatched(habit.instanceId)
+                                }
                             }
                         }
                     },
