@@ -10,6 +10,7 @@ const val CPP_WEEKLY_HABIT_INSTANCE_ID = 4L
 const val LEGO_KIT_HABIT_INSTANCE_ID = 5L
 const val GARDEN_HABIT_INSTANCE_ID = 6L
 const val SOURDOUGH_HABIT_INSTANCE_ID = 7L
+const val CPP26_HABIT_INSTANCE_ID = 8L
 
 /**
  * Idempotent — safe to call on every app startup (RemindersApp.onCreate). insertIfAbsent's
@@ -136,5 +137,23 @@ suspend fun ensureHabitsSeeded(
     )
     intervalDueProgressDao.insertIfAbsent(
         IntervalDueProgress(habitInstanceId = SOURDOUGH_HABIT_INSTANCE_ID, nextDueDate = LocalDate.now().toString())
+    )
+    // Second SCHEDULE_CURSOR instance — same kind as Tanakh, so it needs zero new domain classes
+    // (ScheduleCursorRepository now takes a per-instance scheduleFor lookup instead of one shared
+    // list; HabitEngine already dispatches by instance.kind to that one repository regardless of
+    // which instance it's asked about). Only the dashboard row's icon/wording and the stats route
+    // are per-instance; see DashboardScreen.kt's isCpp26Row. No explicit
+    // scheduleCursorProgressDao seed needed — cursorIndex defaults to 0 (the first chapter, 414)
+    // when no row exists yet, same as Tanakh never seeding one either.
+    dao.insertIfAbsent(
+        HabitInstance(
+            id = CPP26_HABIT_INSTANCE_ID,
+            kind = HabitKind.SCHEDULE_CURSOR.name,
+            name = "C++26",
+            enabledDaysMask = 0b1111111, // every day, including the weekend — confirmed by the user
+            notificationTitle = "Reminders",
+            notificationBody = "Time for today's C++26 chapter?",
+            counterGoal = null,
+        )
     )
 }

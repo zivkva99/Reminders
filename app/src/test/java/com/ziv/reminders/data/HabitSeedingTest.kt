@@ -66,6 +66,19 @@ class HabitSeedingTest {
     }
 
     @Test
+    fun ensureHabitsSeeded_seedsCpp26Instance() = runTest {
+        val db = newDb()
+
+        ensureHabitsSeeded(db.habitInstanceDao(), db.computedScheduleProgressDao(), db.intervalDueProgressDao())
+
+        val instance = db.habitInstanceDao().getById(CPP26_HABIT_INSTANCE_ID)
+        assertEquals("C++26", instance?.name)
+        assertEquals(HabitKind.SCHEDULE_CURSOR.name, instance?.kind)
+        assertEquals(0b1111111, instance?.enabledDaysMask)
+        db.close()
+    }
+
+    @Test
     fun ensureHabitsSeeded_calledTwice_doesNotResetAnAlreadyAdvancedDueDate() = runTest {
         // Regression test (Eng review finding): re-running seeding on every app restart must
         // never reset a real, already-advanced due date back to "today".

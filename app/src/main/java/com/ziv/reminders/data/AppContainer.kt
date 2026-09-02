@@ -5,6 +5,7 @@ import androidx.room.Room
 import androidx.room.withTransaction
 import com.ziv.reminders.engine.HabitEngine
 import com.ziv.reminders.scheduling.HabitScheduler
+import java.time.LocalDate
 
 /** Manual DI — no framework needed at this app's size. One instance, owned by RemindersApp. */
 class AppContainer(context: Context) : DashboardDataSource, ExerciseDetailDataSource, ActivityDataSource {
@@ -53,8 +54,14 @@ class AppContainer(context: Context) : DashboardDataSource, ExerciseDetailDataSo
             emptyList()
         }
     }
+    // Fixed, hand-picked list — no bundled asset like tanakhSchedule (see Cpp26Schedule.kt).
+    // Start date (2026-09-02) confirmed by the user: chapter 414 is due the day this was added.
+    val cpp26Schedule: List<ScheduleEntry> by lazy { buildCpp26Schedule(LocalDate.of(2026, 9, 2)) }
+
     override val scheduleCursorRepository: ScheduleCursorRepository by lazy {
-        ScheduleCursorRepository(scheduleCursorProgressDao, scheduleCursorDailyProgressDao, tanakhSchedule)
+        ScheduleCursorRepository(scheduleCursorProgressDao, scheduleCursorDailyProgressDao) { instance ->
+            if (instance.id == CPP26_HABIT_INSTANCE_ID) cpp26Schedule else tanakhSchedule
+        }
     }
     override val computedScheduleRepository: ComputedScheduleRepository by lazy {
         ComputedScheduleRepository(

@@ -236,4 +236,27 @@ class ScheduleCursorRepositoryTest {
 
         assertEquals(listOf("2026-07-12"), repo.completedDates(instance))
     }
+
+    // Added once C++26 became a second SCHEDULE_CURSOR-kind instance (2026-09-02) — proves the
+    // per-instance scheduleFor lookup constructor routes each instance to its own list, not a
+    // single shared one (which would have made cpp26Instance's cursor walk Tanakh's book/chapter
+    // text, or vice versa).
+    @Test
+    fun todayStatus_perInstanceScheduleLookup_routesEachInstanceToItsOwnSchedule() = runTest {
+        val cpp26Schedule = listOf(ScheduleEntry("Ch.", "414", LocalDate.of(2026, 7, 12)))
+        val cpp26Instance = HabitInstance(
+            id = 5L, kind = "SCHEDULE_CURSOR", name = "C++26", enabledDaysMask = 0b1111111,
+            notificationTitle = "t", notificationBody = "b", counterGoal = null,
+        )
+        val repo = ScheduleCursorRepository(FakeScheduleCursorProgressDao(), FakeScheduleCursorDailyProgressDao()) { instance ->
+            if (instance.id == cpp26Instance.id) cpp26Schedule else schedule
+        }
+
+        val tanakhStatus = repo.todayStatus(instance, today = LocalDate.of(2026, 7, 12))
+        val cpp26Status = repo.todayStatus(cpp26Instance, today = LocalDate.of(2026, 7, 12))
+
+        assertEquals("א", tanakhStatus.book)
+        assertEquals("Ch.", cpp26Status.book)
+        assertEquals("414", cpp26Status.chapterHeb)
+    }
 }

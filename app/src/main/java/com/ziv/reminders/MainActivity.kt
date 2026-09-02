@@ -22,6 +22,8 @@ import com.ziv.reminders.ui.activity.ReadingStatsScreen
 import com.ziv.reminders.ui.activity.TanakhStatsScreen
 import com.ziv.reminders.ui.dashboard.ComputedScheduleStatsScreen
 import com.ziv.reminders.ui.dashboard.ComputedScheduleStatsViewModel
+import com.ziv.reminders.ui.dashboard.Cpp26StatsScreen
+import com.ziv.reminders.ui.dashboard.Cpp26StatsViewModel
 import com.ziv.reminders.ui.dashboard.DashboardScreen
 import com.ziv.reminders.ui.dashboard.DashboardViewModel
 import com.ziv.reminders.data.GARDEN_HABIT_INSTANCE_ID
@@ -65,6 +67,8 @@ class MainActivity : ComponentActivity() {
                         key = "sourdoughStats",
                         factory = IntervalDueStatsViewModel.factory(container, SOURDOUGH_HABIT_INSTANCE_ID),
                     )
+                val cpp26StatsViewModel: Cpp26StatsViewModel =
+                    viewModel(factory = Cpp26StatsViewModel.factory(container))
 
                 NavHost(navController = navController, startDestination = "dashboard") {
                     composable("dashboard") {
@@ -82,6 +86,7 @@ class MainActivity : ComponentActivity() {
                             onOpenLegoKitStats = { navController.navigate("legoKitStats") },
                             onOpenGardenStats = { navController.navigate("gardenStats") },
                             onOpenSourdoughStats = { navController.navigate("sourdoughStats") },
+                            onOpenCpp26Stats = { navController.navigate("cpp26Stats") },
                         )
                     }
                     composable("exerciseCounter") {
@@ -131,6 +136,12 @@ class MainActivity : ComponentActivity() {
                         IntervalDueStatsScreen(
                             viewModel = sourdoughStatsViewModel,
                             title = "מחמצת",
+                            onBack = { navController.popBackStack() },
+                        )
+                    }
+                    composable("cpp26Stats") {
+                        Cpp26StatsScreen(
+                            viewModel = cpp26StatsViewModel,
                             onBack = { navController.popBackStack() },
                         )
                     }

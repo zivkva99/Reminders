@@ -53,6 +53,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import com.ziv.reminders.R
+import com.ziv.reminders.data.CPP26_HABIT_INSTANCE_ID
 import com.ziv.reminders.data.EXERCISE_HABIT_INSTANCE_ID
 import com.ziv.reminders.data.HabitStatus
 import com.ziv.reminders.data.LEGO_KIT_HABIT_INSTANCE_ID
@@ -76,6 +77,7 @@ fun DashboardScreen(
     onOpenLegoKitStats: () -> Unit = {},
     onOpenGardenStats: () -> Unit = {},
     onOpenSourdoughStats: () -> Unit = {},
+    onOpenCpp26Stats: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val coroutineScope = rememberCoroutineScope()
@@ -175,6 +177,7 @@ fun DashboardScreen(
                     onOpenLegoKitStats = onOpenLegoKitStats,
                     onOpenGardenStats = onOpenGardenStats,
                     onOpenSourdoughStats = onOpenSourdoughStats,
+                    onOpenCpp26Stats = onOpenCpp26Stats,
                 )
                 Spacer(Modifier.height(8.dp))
             }
@@ -203,6 +206,7 @@ private fun HabitRow(
     onRescheduleOnly: (Int) -> Unit,
     onOpenGardenStats: () -> Unit,
     onOpenSourdoughStats: () -> Unit,
+    onOpenCpp26Stats: () -> Unit,
 ) {
     when (habit.status) {
         is HabitStatus.CounterStatus -> if (isLegoKitRow(habit.instanceId)) {
@@ -211,7 +215,11 @@ private fun HabitRow(
             CounterHabitRow(habit, habit.status, onIncrement, onOpenExercise, onOpenExerciseStats)
         }
         is HabitStatus.TimerStatus -> TimerHabitRow(habit, habit.status, onToggleTimer, onResetReadingToday, fetchReadingSessionCountToday, onOpenReadingStats)
-        is HabitStatus.ScheduleCursorStatus -> ScheduleCursorHabitRow(habit, habit.status, onMarkRead, onOpenTanakhStats)
+        is HabitStatus.ScheduleCursorStatus -> ScheduleCursorHabitRow(
+            habit, habit.status, onMarkRead,
+            iconRes = scheduleCursorIconRes(habit.instanceId),
+            onOpenStats = if (isCpp26Row(habit.instanceId)) onOpenCpp26Stats else onOpenTanakhStats,
+        )
         is HabitStatus.ComputedScheduleStatus -> ComputedScheduleHabitRow(habit, habit.status, onMarkNextWatched, onOpenCppWeeklyStats)
         is HabitStatus.IntervalDueStatus -> IntervalDueHabitRow(
             habit, habit.status,
@@ -245,6 +253,14 @@ fun isSourdoughRow(instanceId: Long): Boolean = instanceId == SOURDOUGH_HABIT_IN
 
 private fun intervalDueIconRes(instanceId: Long): Int =
     if (isSourdoughRow(instanceId)) R.drawable.ic_habit_sourdough else R.drawable.ic_habit_garden
+
+// Same "dispatch by ID, not by shared HabitKind" rule again — C++26 is also a SCHEDULE_CURSOR-kind
+// habit (shares HabitStatus.ScheduleCursorStatus with Tanakh), so ScheduleCursorHabitRow's icon/
+// stats destination must be chosen by instance ID rather than assuming there's only ever one.
+fun isCpp26Row(instanceId: Long): Boolean = instanceId == CPP26_HABIT_INSTANCE_ID
+
+private fun scheduleCursorIconRes(instanceId: Long): Int =
+    if (isCpp26Row(instanceId)) R.drawable.ic_habit_cppweekly else R.drawable.ic_habit_tanakh
 
 // Imperative and past-tense forms of this instance's action verb — kept as two explicit strings
 // rather than derived (e.g. "$verb" + "ed") because "Feed"/"Fed" isn't a regular past tense.
@@ -542,7 +558,8 @@ private fun ScheduleCursorHabitRow(
     habit: HabitRowUiState,
     status: HabitStatus.ScheduleCursorStatus,
     onMarkRead: () -> Unit,
-    onOpenTanakhStats: () -> Unit,
+    iconRes: Int,
+    onOpenStats: () -> Unit,
 ) {
     var showMenu by remember { mutableStateOf(false) }
 
@@ -566,7 +583,7 @@ private fun ScheduleCursorHabitRow(
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Image(painter = painterResource(R.drawable.ic_habit_tanakh), contentDescription = null, modifier = Modifier.size(40.dp))
+            Image(painter = painterResource(iconRes), contentDescription = null, modifier = Modifier.size(40.dp))
             HabitStatusDot(
                 color = when {
                     // dueCount is only ever nonzero when status is Behind (see
@@ -612,7 +629,7 @@ private fun ScheduleCursorHabitRow(
     if (showMenu) {
         RowLongPressMenu(
             title = habit.name,
-            options = listOf(RowMenuOption("Statistics", onOpenTanakhStats)),
+            options = listOf(RowMenuOption("Statistics", onOpenStats)),
             onDismiss = { showMenu = false },
         )
     }

@@ -1,5 +1,6 @@
 package com.ziv.reminders.ui.dashboard
 
+import com.ziv.reminders.data.CPP26_HABIT_INSTANCE_ID
 import com.ziv.reminders.data.CPP_WEEKLY_HABIT_INSTANCE_ID
 import com.ziv.reminders.data.EXERCISE_HABIT_INSTANCE_ID
 import com.ziv.reminders.data.GARDEN_HABIT_INSTANCE_ID
@@ -58,5 +59,20 @@ class DashboardDispatchTest {
         assertFalse(isSourdoughRow(GARDEN_HABIT_INSTANCE_ID))
         assertFalse(isSourdoughRow(EXERCISE_HABIT_INSTANCE_ID))
         assertFalse(isSourdoughRow(999L))
+    }
+
+    @Test
+    fun isCpp26Row_cpp26InstanceId_isTrue() {
+        assertTrue(isCpp26Row(CPP26_HABIT_INSTANCE_ID))
+    }
+
+    @Test
+    fun isCpp26Row_otherInstanceIds_isFalse() {
+        // Same regression guard as isSourdoughRow above — Tanakh is also a SCHEDULE_CURSOR-kind
+        // habit, so dispatch must not fall through just because the shared
+        // HabitStatus.ScheduleCursorStatus type matches.
+        assertFalse(isCpp26Row(TANAKH_HABIT_INSTANCE_ID))
+        assertFalse(isCpp26Row(CPP_WEEKLY_HABIT_INSTANCE_ID))
+        assertFalse(isCpp26Row(999L))
     }
 }

@@ -15,19 +15,33 @@ import java.time.LocalDate
  * arbitrary past day (see this feature's design doc, Recommended Approach). The Activity
  * screen's Tanakh day-edit dialog (Task 6) only offers this action when the tapped day is
  * today.
+ *
+ * [scheduleFor] resolves which entry list an instance's cursor walks — added once C++26 became a
+ * second SCHEDULE_CURSOR-kind instance (2026-09-02): unlike every other kind, this one's "config"
+ * is an externally supplied entry list rather than plain columns on HabitInstance
+ * (counterGoal/timerTargetSeconds/anchorItemNumber etc.), so a single shared list — fine when
+ * only Tanakh existed — would have made a second instance's cursor walk Tanakh's own book/chapter
+ * text. AppContainer's production wiring routes by instance.id (Tanakh → tanakhSchedule, C++26 →
+ * cpp26Schedule); the secondary constructor below keeps every pre-existing single-schedule call
+ * site (this class's own tests included) compiling unchanged.
  */
 class ScheduleCursorRepository(
     private val progressDao: ScheduleCursorProgressDao,
     private val dailyProgressDao: ScheduleCursorDailyProgressDao,
-    private val schedule: List<ScheduleEntry>,
+    private val scheduleFor: (HabitInstance) -> List<ScheduleEntry>,
 ) {
+    constructor(
+        progressDao: ScheduleCursorProgressDao,
+        dailyProgressDao: ScheduleCursorDailyProgressDao,
+        schedule: List<ScheduleEntry>,
+    ) : this(progressDao, dailyProgressDao, { _: HabitInstance -> schedule })
 
     suspend fun todayStatus(instance: HabitInstance, today: LocalDate): HabitStatus.ScheduleCursorStatus {
         val cursorIndex = progressDao.getByInstance(instance.id)?.cursorIndex ?: 0
         val todayProgress = dailyProgressDao.getByDate(instance.id, today.toString())
         val completedToday = todayProgress?.completed ?: false
         val entriesReadToday = todayProgress?.entriesMarkedRead ?: 0
-        return when (val status = deriveScheduleEntryStatus(schedule, cursorIndex, today)) {
+        return when (val status = deriveScheduleEntryStatus(scheduleFor(instance), cursorIndex, today)) {
             is ScheduleEntryStatus.Finished ->
                 HabitStatus.ScheduleCursorStatus(book = null, chapterHeb = null, dueCount = 0, completed = completedToday, finished = true, isDueToday = false, entriesReadToday = entriesReadToday)
             is ScheduleEntryStatus.OnSchedule ->
@@ -46,7 +60,7 @@ class ScheduleCursorRepository(
         // nothing new is due until tomorrow. Without the Waiting guard (bug found live
         // 2026-07-21), repeatedly tapping an already-caught-up row silently read ahead through
         // future chapters, defeating the whole catch-up/pacing model this kind exists for.
-        val status = deriveScheduleEntryStatus(schedule, cursorIndex, today)
+        val status = deriveScheduleEntryStatus(scheduleFor(instance), cursorIndex, today)
         if (status is ScheduleEntryStatus.Finished || status is ScheduleEntryStatus.Waiting) return
         progressDao.upsert(ScheduleCursorProgress(instance.id, cursorIndex + 1))
 
