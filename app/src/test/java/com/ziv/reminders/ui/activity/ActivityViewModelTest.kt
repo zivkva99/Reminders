@@ -54,6 +54,8 @@ private class FakeComputedScheduleProgressDaoForActivityTest : ComputedScheduleP
 private class FakeComputedScheduleWatchLogDaoForActivityTest : ComputedScheduleWatchLogDao {
     override suspend fun insert(entry: ComputedScheduleWatchLog): Long = 0L
     override suspend fun getWatchedDates(habitInstanceId: Long): List<String> = emptyList()
+    override suspend fun getMostRecentForDate(habitInstanceId: Long, date: String): ComputedScheduleWatchLog? = null
+    override suspend fun delete(entry: ComputedScheduleWatchLog) {}
 }
 
 // Same reasoning as the ComputedSchedule fakes above — ActivityDataSource doesn't expose
@@ -73,7 +75,14 @@ private class FakeIntervalDueLogDaoForActivityTest : IntervalDueLogDao {
 @OptIn(ExperimentalCoroutinesApi::class)
 class ActivityViewModelTest {
 
-    private val today = LocalDate.of(2026, 7, 19)
+    // Real wall-clock date, not a frozen historical one — ActivityViewModel.refresh() computes
+    // comboStreakThisWeek's 7-day trailing window from LocalDate.now() (same convention as
+    // DashboardViewModel; this codebase has no injected clock seam for "today's date" anywhere in
+    // the ViewModel layer). A test that seeds fixture rows against a hardcoded past date only
+    // passes while that date happens to still fall within the real now()'s trailing week — this
+    // test previously used 2026-07-19 and rotted silently once real time moved past 2026-07-26
+    // (found live 2026-09-02, comboStreakThisWeek asserted 1 but came back 0).
+    private val today = LocalDate.now()
     private val exercise = HabitInstance(EXERCISE_HABIT_INSTANCE_ID, "COUNTER", "Exercise", 0b1111111, "t", "b", counterGoal = 5)
     private val reading = HabitInstance(READING_HABIT_INSTANCE_ID, "TIMER", "Reading", 0b0011111, "t", "b", counterGoal = null, timerTargetSeconds = 900)
     private val tanakh = HabitInstance(TANAKH_HABIT_INSTANCE_ID, "SCHEDULE_CURSOR", "Tanakh", 0b0011111, "t", "b", counterGoal = null)
